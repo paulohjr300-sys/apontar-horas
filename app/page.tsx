@@ -1,69 +1,1372 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState, useEffect } from "react";
+import { createClient, User } from "@supabase/supabase-js";
+import * as XLSX from "xlsx";
+import {
+  Plus,
+  Clock,
+  Settings,
+  LogOut,
+  Lock,
+  Mail,
+  AlertCircle,
+  Save,
+  ExternalLink,
+  Check,
+  Hourglass,
+  Upload,
+  BarChart3,
+  Calendar,
+  Pencil,
+  Trash2,
+  X,
+  CheckCircle2,
+  XCircle,
+  Info,
+  Filter,
+} from "lucide-react";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+interface TimeEntry {
+  id: string;
+  date: string;
+  card_type: string;
+  start_time: string;
+  end_time: string;
+  card_id: string;
+  description: string;
+  card_link: string;
+  status: "Pendente" | "Lançado";
+}
+
+interface UserSettings {
+  work_start_time: string;
+  work_end_time: string;
+  lunch_break_minutes: number;
+}
+
+type ToastType = {
+  message: string;
+  type: "success" | "error" | "info";
+  id: number;
+};
+type ConfirmDialogType = {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+} | null;
+
+export default function Page() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [uploadingExcel, setUploadingExcel] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+
+  const [selectedMonth, setSelectedMonth] = useState(() =>
+    new Date().toISOString().substring(0, 7),
+  );
+
+  const [toasts, setToasts] = useState<ToastType[]>([]);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogType>(null);
+
+  const [settings, setSettings] = useState<UserSettings>({
+    work_start_time: "09:00",
+    work_end_time: "19:20",
+    lunch_break_minutes: 60,
+  });
+
+  const [form, setForm] = useState({
+    date: new Date().toISOString().split("T")[0],
+    card_type: "US",
+    start_time: "09:00",
+    end_time: "10:00",
+    card_id: "",
+    description: "",
+    card_link: "",
+    status: "Pendente" as "Pendente" | "Lançado",
+  });
+
+  const showToast = (
+    message: string,
+    type: "success" | "error" | "info" = "info",
+  ) => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { message, type, id }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoadingAuth(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+        setLoadingAuth(false);
+      },
+    );
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) fetchUserData();
+  }, [user]);
+
+  const fetchUserData = async () => {
+    setLoadingData(true);
+    try {
+      const { data: settingsData } = await supabase
+        .from("user_settings")
+        .select("*")
+        .eq("user_id", user?.id)
+        .maybeSingle();
+      if (settingsData) {
+        setSettings({
+          work_start_time: settingsData.work_start_time || "09:00",
+          work_end_time: settingsData.work_end_time || "19:20",
+          lunch_break_minutes: settingsData.lunch_break_minutes ?? 60,
+        });
+      }
+      const { data: entriesData } = await supabase
+        .from("time_entries")
+        .select("*")
+        .eq("user_id", user?.id)
+        .order("date", { ascending: false });
+      setEntries(entriesData || []);
+    } catch (err) {
+      showToast("Erro ao carregar os dados.", "error");
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingAuth(true);
+    if (authMode === "login") {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error)
+        showToast(
+          error.message === "Invalid login credentials"
+            ? "E-mail ou senha incorretos."
+            : error.message,
+          "error",
+        );
+      else showToast("Login realizado com sucesso!", "success");
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) showToast(error.message, "error");
+      else {
+        showToast("Conta criada com sucesso! Você já pode entrar.", "success");
+        setAuthMode("login");
+      }
+    }
+    setIsSubmittingAuth(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    showToast("Sessão encerrada.", "info");
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setLoadingData(true);
+    const { error } = await supabase.from("user_settings").upsert({
+      user_id: user.id,
+      work_start_time: settings.work_start_time,
+      work_end_time: settings.work_end_time,
+      lunch_break_minutes: settings.lunch_break_minutes,
+      updated_at: new Date().toISOString(),
+    });
+    if (!error) {
+      setShowSettings(false);
+      showToast("Configurações salvas com sucesso!", "success");
+    } else {
+      showToast("Erro ao salvar as configurações.", "error");
+    }
+    setLoadingData(false);
+  };
+
+  const parseExcelTime = (val: any): string => {
+    if (!val) return "";
+    if (val instanceof Date)
+      return `${String(val.getHours()).padStart(2, "0")}:${String(val.getMinutes()).padStart(2, "0")}`;
+    const valStr = String(val).trim();
+    if (valStr.includes(":")) {
+      const match = valStr.match(/(\d{1,2}):(\d{2})/);
+      if (match)
+        return `${String(match[1]).padStart(2, "0")}:${String(match[2]).padStart(2, "0")}`;
+    }
+    if (typeof val === "number") {
+      const totalSeconds = Math.round(val * 86400);
+      return `${String(Math.floor(totalSeconds / 3600) % 24).padStart(2, "0")}:${String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0")}`;
+    }
+    return "";
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploadingExcel(true);
+    const reader = new FileReader();
+
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: "binary", cellDates: true });
+        const sheetName = wb.SheetNames.includes("Lançamento de Horas")
+          ? "Lançamento de Horas"
+          : wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const rawData: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        const rowsToInsert: any[] = [];
+
+        rawData.forEach((row) => {
+          if (!row || row.length === 0) return;
+          const rawDate = row[0];
+          if (
+            !rawDate ||
+            rawDate === "Data" ||
+            String(rawDate).toLowerCase().includes("controle")
+          )
+            return;
+
+          const cardType = row[1],
+            rawStartTime = row[2],
+            rawEndTime = row[3];
+          const cardId = row[6],
+            description = row[7],
+            cardLink = row[8],
+            statusDevOps = row[9];
+          const startTime = parseExcelTime(rawStartTime),
+            endTime = parseExcelTime(rawEndTime);
+
+          if (startTime && endTime) {
+            let formattedDate = "";
+            if (rawDate instanceof Date && !isNaN(rawDate.getTime()))
+              formattedDate = rawDate.toISOString().split("T")[0];
+            else if (
+              typeof rawDate === "string" &&
+              rawDate.match(/^\d{4}-\d{2}-\d{2}/)
+            )
+              formattedDate = rawDate.split("T")[0];
+            else if (typeof rawDate === "number")
+              formattedDate = new Date(
+                Math.round((rawDate - 25569) * 86400 * 1000),
+              )
+                .toISOString()
+                .split("T")[0];
+
+            if (formattedDate) {
+              const status =
+                statusDevOps === "Lançado" ||
+                statusDevOps === "Concluído / Lançado"
+                  ? "Lançado"
+                  : "Pendente";
+              rowsToInsert.push({
+                user_id: user.id,
+                date: formattedDate,
+                card_type: String(cardType || "US"),
+                start_time: startTime,
+                end_time: endTime,
+                card_id: cardId ? String(cardId) : "",
+                description: description ? String(description) : "",
+                card_link: cardLink ? String(cardLink) : "",
+                status: status,
+              });
+            }
+          }
+        });
+
+        if (rowsToInsert.length > 0) {
+          const { error } = await supabase
+            .from("time_entries")
+            .insert(rowsToInsert);
+          if (error)
+            showToast("Erro ao importar para o banco de dados.", "error");
+          else {
+            showToast(
+              `${rowsToInsert.length} lançamentos importados com sucesso!`,
+              "success",
+            );
+            fetchUserData();
+          }
+        } else
+          showToast(
+            "Nenhum registro válido foi encontrado na planilha.",
+            "info",
+          );
+      } catch (err) {
+        showToast("Falha ao processar o arquivo Excel.", "error");
+      } finally {
+        setUploadingExcel(false);
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = "";
+  };
+
+  const timeToMinutes = (timeStr: string) => {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const getEntryDurationMinutes = (start: string, end: string) => {
+    const startMin = timeToMinutes(start);
+    const endMin = timeToMinutes(end);
+    return endMin >= startMin ? endMin - startMin : 1440 - startMin + endMin;
+  };
+
+  const toggleStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === "Lançado" ? "Pendente" : "Lançado";
+    setEntries((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, status: newStatus as any } : e)),
+    );
+    const { error } = await supabase
+      .from("time_entries")
+      .update({ status: newStatus })
+      .eq("id", id);
+    if (error) {
+      showToast("Erro ao atualizar o status.", "error");
+      fetchUserData();
+    }
+  };
+
+  const confirmDelete = (id: string) => {
+    setConfirmDialog({
+      title: "Excluir Lançamento",
+      message:
+        "Tem certeza que deseja apagar este registro? Essa ação não pode ser desfeita.",
+      onConfirm: async () => {
+        setEntries((prev) => prev.filter((e) => e.id !== id));
+        setConfirmDialog(null);
+        const { error } = await supabase
+          .from("time_entries")
+          .delete()
+          .eq("id", id);
+        if (error) {
+          showToast("Erro ao excluir o registro.", "error");
+          fetchUserData();
+        } else showToast("Registro excluído com sucesso.", "success");
+      },
+    });
+  };
+
+  const handleUpdateEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEntry) return;
+    setLoadingData(true);
+    const { error } = await supabase
+      .from("time_entries")
+      .update({
+        date: editingEntry.date,
+        card_type: editingEntry.card_type,
+        start_time: editingEntry.start_time,
+        end_time: editingEntry.end_time,
+        card_id: editingEntry.card_id,
+        description: editingEntry.description,
+        card_link: editingEntry.card_link,
+        status: editingEntry.status,
+      })
+      .eq("id", editingEntry.id);
+
+    if (!error) {
+      setEntries((prev) =>
+        prev.map((e) => (e.id === editingEntry.id ? editingEntry : e)),
+      );
+      setEditingEntry(null);
+      showToast("Lançamento atualizado!", "success");
+    } else showToast("Erro ao atualizar o registro.", "error");
+    setLoadingData(false);
+  };
+
+  const handleSubmitEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setLoadingData(true);
+    const { data, error } = await supabase
+      .from("time_entries")
+      .insert([{ ...form, user_id: user.id }])
+      .select();
+    if (!error && data) {
+      setEntries([data[0], ...entries]);
+      setForm({
+        ...form,
+        description: "",
+        card_id: "",
+        card_link: "",
+        status: "Pendente",
+      });
+      showToast("Atividade registrada com sucesso!", "success");
+    } else showToast("Erro ao registrar a atividade.", "error");
+    setLoadingData(false);
+  };
+
+  // --- CÁLCULO INTELIGENTE DE DIAS ÚTEIS E SEXTAS-FEIRAS ---
+
+  // Função que verifica se uma data (YYYY-MM-DD) cai na sexta-feira
+  const isDateFriday = (dateStr: string) => {
+    if (!dateStr) return false;
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d, 12, 0, 0).getDay() === 5;
+  };
+
+  // Função para contar quantos dias normais (Seg-Qui) e Sextas-Feiras tem no mês
+  const getBusinessDaysInMonth = (yearMonth: string) => {
+    if (!yearMonth) return { regular: 0, fridays: 0 };
+    const [y, m] = yearMonth.split("-").map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    let regular = 0;
+    let fridays = 0;
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(y, m - 1, i, 12, 0, 0); // Meio-dia evita bug de fuso
+      const day = date.getDay();
+      if (day >= 1 && day <= 4)
+        regular++; // Segunda a Quinta
+      else if (day === 5) fridays++; // Sexta-feira
+    }
+    return { regular, fridays };
+  };
+
+  // Metas Diárias
+  const regularGrossMinutes = getEntryDurationMinutes(
+    settings.work_start_time,
+    settings.work_end_time,
+  );
+  const regularNetMinutes = Math.max(
+    0,
+    regularGrossMinutes - settings.lunch_break_minutes,
+  );
+
+  const fridayGrossMinutes = getEntryDurationMinutes(
+    settings.work_start_time,
+    "18:20",
+  );
+  const fridayNetMinutes = Math.max(
+    0,
+    fridayGrossMinutes - settings.lunch_break_minutes,
+  );
+
+  const { regular: regularDaysThisMonth, fridays: fridaysThisMonth } =
+    getBusinessDaysInMonth(selectedMonth);
+
+  // Calcula a META MENSAL DINAMICAMENTE
+  const calculatedMonthlyGoal =
+    regularDaysThisMonth * (regularNetMinutes / 60) +
+    fridaysThisMonth * (fridayNetMinutes / 60);
+
+  // Filtra registros do Mês Atual
+  const filteredEntries = entries.filter((e) =>
+    e.date.startsWith(selectedMonth),
+  );
+
+  const totalLoggedMinutes = filteredEntries
+    .filter((e) => e.status === "Lançado")
+    .reduce(
+      (acc, curr) =>
+        acc + getEntryDurationMinutes(curr.start_time, curr.end_time),
+      0,
+    );
+  const totalLoggedHours = (totalLoggedMinutes / 60).toFixed(2);
+
+  // Cálculos de "Hoje"
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todayNetTarget = isDateFriday(todayStr)
+    ? fridayNetMinutes
+    : regularNetMinutes;
+  const todayLoggedMinutes = entries
+    .filter((e) => e.date === todayStr && e.status === "Lançado")
+    .reduce(
+      (acc, curr) =>
+        acc + getEntryDurationMinutes(curr.start_time, curr.end_time),
+      0,
+    );
+  const remainingTodayMinutes = Math.max(
+    0,
+    todayNetTarget - todayLoggedMinutes,
+  );
+  const remainingTodayFormatted = `${Math.floor(remainingTodayMinutes / 60)}h ${remainingTodayMinutes % 60}m`;
+
+  const dailySummary = filteredEntries.reduce(
+    (acc, entry) => {
+      const dateKey = entry.date;
+      if (!acc[dateKey]) acc[dateKey] = { totalMin: 0, loggedMin: 0, count: 0 };
+      const dur = getEntryDurationMinutes(entry.start_time, entry.end_time);
+      acc[dateKey].totalMin += dur;
+      if (entry.status === "Lançado") acc[dateKey].loggedMin += dur;
+      acc[dateKey].count += 1;
+      return acc;
+    },
+    {} as Record<
+      string,
+      { totalMin: number; loggedMin: number; count: number }
+    >,
+  );
+
+  const dailySortedDates = Object.keys(dailySummary).sort((a, b) =>
+    b.localeCompare(a),
+  );
+
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center gap-4">
+        <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+        <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">
+          Carregando...
+        </span>
+      </div>
+    );
+  }
+
+  const GlobalOverlays = () => (
+    <>
+      <div className="fixed top-6 right-6 z-50 flex flex-col gap-3 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="pointer-events-auto bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3 animate-in slide-in-from-right-8 fade-in min-w-[280px] shadow-xl"
+          >
+            {toast.type === "success" && (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            )}
+            {toast.type === "error" && (
+              <XCircle className="w-5 h-5 text-rose-400" />
+            )}
+            {toast.type === "info" && (
+              <Info className="w-5 h-5 text-blue-400" />
+            )}
+            <span className="text-sm font-medium text-slate-200">
+              {toast.message}
+            </span>
+          </div>
+        ))}
+      </div>
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-slate-950/80 z-[100] flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-semibold text-white mb-2">
+              {confirmDialog.title}
+            </h3>
+            <p className="text-sm text-slate-400 mb-6">
+              {confirmDialog.message}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDialog.onConfirm}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-rose-600 hover:bg-rose-500 transition-colors"
+              >
+                Sim, excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+        <GlobalOverlays />
+        <div className="w-full max-w-[400px] space-y-8">
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Clock className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+              DevOps Hours
+            </h1>
+            <p className="text-sm text-slate-400">
+              Gerencie seus apontamentos de forma simples
+            </p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
+            <form onSubmit={handleAuth} className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                  E-mail
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="dev@empresa.com"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                  Senha
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmittingAuth}
+                className="w-full bg-white hover:bg-slate-200 text-slate-950 font-semibold py-2.5 rounded-lg text-sm transition-colors mt-4 disabled:opacity-50"
+              >
+                {isSubmittingAuth
+                  ? "Processando..."
+                  : authMode === "login"
+                    ? "Entrar"
+                    : "Criar Conta"}
+              </button>
+            </form>
+            <div className="text-center pt-6 mt-6 border-t border-slate-800/60">
+              <button
+                onClick={() =>
+                  setAuthMode(authMode === "login" ? "signup" : "login")
+                }
+                className="text-sm text-slate-400 hover:text-white transition-colors"
+              >
+                {authMode === "login"
+                  ? "Ainda não tem conta? Cadastre-se"
+                  : "Já tem conta? Faça login"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
+      <GlobalOverlays />
+      <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-800/60">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-600/10 border border-indigo-500/20 rounded-xl flex items-center justify-center">
+              <BarChart3 className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">
+                DevOps Hours
+              </h1>
+              <p className="text-xs text-slate-400 font-medium">{user.email}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-200 text-sm font-medium px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2">
+              <Upload className="w-4 h-4 text-slate-400" />
+              <span>{uploadingExcel ? "Importando..." : "Importar Excel"}</span>
+              <input
+                type="file"
+                accept=".xlsx, .xls"
+                onChange={handleFileUpload}
+                disabled={uploadingExcel}
+                className="hidden"
+              />
+            </label>
+
+            <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-lg flex items-center gap-2.5">
+              <Clock className="w-4 h-4 text-slate-400" />
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-semibold text-slate-500 leading-none">
+                  Hoje
+                </span>
+                <span className="font-mono font-medium text-slate-300 text-xs leading-none mt-1">
+                  {loadingData ? "--:--" : remainingTodayFormatted} restantes
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="p-2.5 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg transition-colors"
+              title="Configurações"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              <Settings className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="p-2.5 text-slate-400 hover:text-rose-400 bg-slate-900 border border-slate-800 hover:border-rose-900/50 hover:bg-rose-500/10 rounded-lg transition-colors"
+              title="Sair"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        {showSettings && (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg animate-in slide-in-from-top-4 fade-in">
+            <div className="flex items-center justify-between mb-5 border-b border-slate-800/60 pb-4">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <Settings className="w-4 h-4 text-slate-400" /> Ajustes da
+                Jornada
+              </h2>
+              <div className="flex gap-2">
+                <span className="text-xs font-medium bg-slate-950 border border-slate-800 text-slate-400 px-3 py-1 rounded-full">
+                  Seg a Qui:{" "}
+                  <strong className="text-white">
+                    {Math.floor(regularNetMinutes / 60)}h{" "}
+                    {regularNetMinutes % 60}m
+                  </strong>
+                </span>
+                <span className="text-xs font-medium bg-indigo-950/30 border border-indigo-900/50 text-indigo-300 px-3 py-1 rounded-full">
+                  Sexta:{" "}
+                  <strong className="text-indigo-200">
+                    {Math.floor(fridayNetMinutes / 60)}h {fridayNetMinutes % 60}
+                    m
+                  </strong>
+                </span>
+              </div>
+            </div>
+            <form
+              onSubmit={handleSaveSettings}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-5"
+            >
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-2">
+                  Início do Expediente
+                </label>
+                <input
+                  type="time"
+                  value={settings.work_start_time}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      work_start_time: e.target.value,
+                    })
+                  }
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-2">
+                  Fim do Expediente (Seg-Qui)
+                </label>
+                <input
+                  type="time"
+                  value={settings.work_end_time}
+                  onChange={(e) =>
+                    setSettings({ ...settings, work_end_time: e.target.value })
+                  }
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-2">
+                  Pausa Almoço (min)
+                </label>
+                <input
+                  type="number"
+                  value={settings.lunch_break_minutes}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      lunch_break_minutes: Number(e.target.value),
+                    })
+                  }
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                />
+              </div>
+              <div className="sm:col-span-3 flex justify-end">
+                <button
+                  type="submit"
+                  className="bg-white hover:bg-slate-200 text-slate-900 text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" /> Salvar Configurações
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            Visão Geral
+          </h2>
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 focus-within:border-indigo-500 transition-colors">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-transparent text-sm text-white outline-none [color-scheme:dark]"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
         </div>
-      </main>
+
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+              Total Lançado (Mês)
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-bold text-white font-mono">
+                {totalLoggedHours}
+              </span>
+              <span className="text-slate-500 text-sm">horas</span>
+            </div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div className="flex justify-between items-start mb-1">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+                Meta Dinâmica
+              </span>
+              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">
+                {regularDaysThisMonth} Normais / {fridaysThisMonth} Sextas
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-bold text-white font-mono">
+                {calculatedMonthlyGoal.toFixed(2)}
+              </span>
+              <span className="text-slate-500 text-sm">horas</span>
+            </div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+              Saldo a Cumprir
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-bold text-white font-mono">
+                {Math.max(
+                  0,
+                  calculatedMonthlyGoal - parseFloat(totalLoggedHours),
+                ).toFixed(2)}
+              </span>
+              <span className="text-slate-500 text-sm">horas</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+          <h2 className="text-sm font-bold text-white mb-5 flex items-center gap-2">
+            <Plus className="w-4 h-4 text-slate-400" /> Registro Manual
+          </h2>
+          <form
+            onSubmit={handleSubmitEntry}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4"
+          >
+            <div>
+              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
+                Data
+              </label>
+              <input
+                type="date"
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
+                Tipo
+              </label>
+              <select
+                value={form.card_type}
+                onChange={(e) =>
+                  setForm({ ...form, card_type: e.target.value })
+                }
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+              >
+                <option value="US">User Story</option>
+                <option value="BUG">Bug</option>
+                <option value="Daily">Daily</option>
+                <option value="Planning">Planning</option>
+                <option value="QA Plan">QA Plan</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
+                Período
+              </label>
+              <div className="flex gap-1.5">
+                <input
+                  type="time"
+                  value={form.start_time}
+                  onChange={(e) =>
+                    setForm({ ...form, start_time: e.target.value })
+                  }
+                  className="w-1/2 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white text-center focus:border-indigo-500 outline-none transition-colors"
+                />
+                <input
+                  type="time"
+                  value={form.end_time}
+                  onChange={(e) =>
+                    setForm({ ...form, end_time: e.target.value })
+                  }
+                  className="w-1/2 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white text-center focus:border-indigo-500 outline-none transition-colors"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
+                DevOps ID
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: 12345"
+                value={form.card_id}
+                onChange={(e) => setForm({ ...form, card_id: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
+                Status Inicial
+              </label>
+              <select
+                value={form.status}
+                onChange={(e) =>
+                  setForm({ ...form, status: e.target.value as any })
+                }
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+              >
+                <option value="Pendente">Pendente</option>
+                <option value="Lançado">Lançado</option>
+              </select>
+            </div>
+            <div className="lg:col-span-2">
+              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
+                O que foi feito?
+              </label>
+              <input
+                type="text"
+                placeholder="Resumo..."
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
+              />
+            </div>
+            <div className="lg:col-span-5">
+              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
+                Link URL (Opcional)
+              </label>
+              <input
+                type="url"
+                placeholder="https://..."
+                value={form.card_link}
+                onChange={(e) =>
+                  setForm({ ...form, card_link: e.target.value })
+                }
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
+              />
+            </div>
+            <div className="lg:col-span-2 flex items-end">
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg text-sm py-2.5 transition-colors"
+              >
+                Lançar Horas
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-slate-400" /> Rendimento por
+              Dia ({selectedMonth})
+            </h2>
+            <div className="flex gap-2">
+              <span className="text-[10px] font-medium text-slate-500 bg-slate-950 px-2 py-1 rounded">
+                Alvo: {(regularNetMinutes / 60).toFixed(2)}h
+              </span>
+              <span className="text-[10px] font-medium text-indigo-400 bg-indigo-950/30 px-2 py-1 rounded">
+                Sexta: {(fridayNetMinutes / 60).toFixed(2)}h
+              </span>
+            </div>
+          </div>
+
+          {dailySortedDates.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-4">
+              Nenhum histórico gerado para o mês selecionado.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {dailySortedDates.map((dateKey) => {
+                const dayData = dailySummary[dateKey];
+                const isFriday = isDateFriday(dateKey);
+                const targetMinForDay = isFriday
+                  ? fridayNetMinutes
+                  : regularNetMinutes;
+
+                const loggedHours = (dayData.loggedMin / 60).toFixed(2);
+                const progressPct = Math.min(
+                  100,
+                  Math.round((dayData.loggedMin / targetMinForDay) * 100),
+                );
+                const isComplete = progressPct >= 100;
+
+                return (
+                  <div
+                    key={dateKey}
+                    className="bg-slate-950 border border-slate-800/50 rounded-xl p-3.5 flex flex-col gap-2.5"
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-medium text-slate-400">
+                        {dateKey}{" "}
+                        {isFriday && (
+                          <span className="text-indigo-400 ml-1 text-[10px]">
+                            (Sex)
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className={`text-xs font-bold font-mono ${isComplete ? "text-emerald-400" : "text-slate-300"}`}
+                      >
+                        {loggedHours}h
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${isComplete ? "bg-emerald-400" : "bg-indigo-500"}`}
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-slate-500">
+                      <span>{dayData.count} regs</span>
+                      <span>{progressPct}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-300">
+              <thead className="bg-slate-950/50 text-slate-500 text-xs font-medium uppercase border-b border-slate-800/80">
+                <tr>
+                  <th className="px-5 py-4 whitespace-nowrap">Data</th>
+                  <th className="px-5 py-4 whitespace-nowrap">Tipo</th>
+                  <th className="px-5 py-4 whitespace-nowrap">Horário</th>
+                  <th className="px-5 py-4 whitespace-nowrap">Total</th>
+                  <th className="px-5 py-4 whitespace-nowrap">DevOps ID</th>
+                  <th className="px-5 py-4 min-w-[280px]">Atividade</th>
+                  <th className="px-5 py-4 whitespace-nowrap">Status</th>
+                  <th className="px-5 py-4 text-right whitespace-nowrap">
+                    Opções
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                {filteredEntries.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-slate-500">
+                      Nenhum apontamento cadastrado neste mês.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredEntries.map((entry) => {
+                    const durMin = getEntryDurationMinutes(
+                      entry.start_time,
+                      entry.end_time,
+                    );
+                    const durFormatted = `${Math.floor(durMin / 60)}h ${durMin % 60}m`;
+                    const isLançado = entry.status === "Lançado";
+                    const isFriday = isDateFriday(entry.date);
+
+                    return (
+                      <tr
+                        key={entry.id}
+                        className="hover:bg-slate-800/30 transition-colors group"
+                      >
+                        <td className="px-5 py-3 text-slate-400 font-mono text-xs whitespace-nowrap">
+                          {entry.date}{" "}
+                          {isFriday && (
+                            <span className="text-indigo-400 ml-1 text-[10px] bg-indigo-950/30 px-1 rounded">
+                              Sex
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <span className="px-2 py-1 rounded text-[10px] font-medium bg-slate-800 text-slate-300">
+                            {entry.card_type}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-slate-400 font-mono text-xs whitespace-nowrap">
+                          {entry.start_time} - {entry.end_time}
+                        </td>
+                        <td className="px-5 py-3 font-mono text-slate-200 text-xs font-medium whitespace-nowrap">
+                          {durFormatted}
+                        </td>
+                        <td className="px-5 py-3 font-mono text-xs whitespace-nowrap">
+                          {entry.card_link ? (
+                            <a
+                              href={entry.card_link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-indigo-400 hover:underline"
+                            >
+                              {entry.card_id || "Link"}
+                            </a>
+                          ) : (
+                            <span className="text-slate-500">
+                              {entry.card_id || "-"}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-slate-400 text-xs truncate max-w-[200px]">
+                          {entry.description}
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <span
+                            className={`px-2 py-1 rounded text-[10px] font-medium flex items-center gap-1 w-fit ${isLançado ? "text-emerald-400 bg-emerald-400/10" : "text-amber-400 bg-amber-400/10"}`}
+                          >
+                            {entry.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() =>
+                                toggleStatus(entry.id, entry.status)
+                              }
+                              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${isLançado ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white"}`}
+                            >
+                              {isLançado ? "Tornar Pendente" : "Marcar Lançado"}
+                            </button>
+                            <button
+                              onClick={() => setEditingEntry(entry)}
+                              className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => confirmDelete(entry.id)}
+                              className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {editingEntry && (
+          <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 animate-in fade-in">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative">
+              <button
+                onClick={() => setEditingEntry(null)}
+                className="absolute top-5 right-5 p-1 text-slate-500 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <h3 className="text-lg font-bold text-white mb-5">
+                Editar Registro
+              </h3>
+              <form onSubmit={handleUpdateEntry} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                      Data
+                    </label>
+                    <input
+                      type="date"
+                      value={editingEntry.date}
+                      onChange={(e) =>
+                        setEditingEntry({
+                          ...editingEntry,
+                          date: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                      Tipo
+                    </label>
+                    <select
+                      value={editingEntry.card_type}
+                      onChange={(e) =>
+                        setEditingEntry({
+                          ...editingEntry,
+                          card_type: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    >
+                      <option value="US">User Story</option>
+                      <option value="BUG">Bug</option>
+                      <option value="Daily">Daily</option>
+                      <option value="Planning">Planning</option>
+                      <option value="QA Plan">QA Plan</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                      Início
+                    </label>
+                    <input
+                      type="time"
+                      value={editingEntry.start_time}
+                      onChange={(e) =>
+                        setEditingEntry({
+                          ...editingEntry,
+                          start_time: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                      Fim
+                    </label>
+                    <input
+                      type="time"
+                      value={editingEntry.end_time}
+                      onChange={(e) =>
+                        setEditingEntry({
+                          ...editingEntry,
+                          end_time: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                      Status
+                    </label>
+                    <select
+                      value={editingEntry.status}
+                      onChange={(e) =>
+                        setEditingEntry({
+                          ...editingEntry,
+                          status: e.target.value as any,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    >
+                      <option value="Pendente">Pendente</option>
+                      <option value="Lançado">Lançado</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-1">
+                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                      ID DevOps
+                    </label>
+                    <input
+                      type="text"
+                      value={editingEntry.card_id}
+                      onChange={(e) =>
+                        setEditingEntry({
+                          ...editingEntry,
+                          card_id: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                      Link
+                    </label>
+                    <input
+                      type="url"
+                      value={editingEntry.card_link}
+                      onChange={(e) =>
+                        setEditingEntry({
+                          ...editingEntry,
+                          card_link: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                    Descrição
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEntry.description}
+                    onChange={(e) =>
+                      setEditingEntry({
+                        ...editingEntry,
+                        description: e.target.value,
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-slate-800/50">
+                  <button
+                    type="button"
+                    onClick={() => setEditingEntry(null)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2 rounded-lg text-sm transition-colors"
+                  >
+                    Salvar Alterações
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
