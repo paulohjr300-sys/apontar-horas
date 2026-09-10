@@ -863,7 +863,7 @@ export default function Page() {
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
-              Saldo a Cumprir
+              Saldo a ser cumprido
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold text-white font-mono">
