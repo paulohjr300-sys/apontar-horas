@@ -471,7 +471,7 @@ export default function Page() {
           .from("time_entries")
           .update({ status: "Lançado", ado_doc_id: docId })
           .eq("id", entry.id);
-        showToast("Time Log gravado no DevOps com sucesso!", "success");
+        showToast("Time Log gravado na TechsBCN com sucesso!", "success");
       }
       return;
     }
@@ -491,7 +491,7 @@ export default function Page() {
         .from("time_entries")
         .update({ status: "Pendente", ado_doc_id: null })
         .eq("id", entry.id);
-      showToast("Marcado como pendente e removido do DevOps.", "info");
+      showToast("Marcado como pendente e removido da TechsBCN.", "info");
     }
   };
 
@@ -499,7 +499,7 @@ export default function Page() {
     setConfirmDialog({
       title: "Excluir Lançamento",
       message:
-        "Tem certeza? Isso apagará o registro tanto daqui quanto lá no DevOps.",
+        "Tem certeza? Isso apagará o registro tanto daqui quanto lá na TechsBCN do Azure.",
       onConfirm: async () => {
         setEntries((prev) => prev.filter((e) => e.id !== entry.id));
         setConfirmDialog(null);
@@ -592,7 +592,7 @@ export default function Page() {
       setCollapsedDays((prev) => ({ ...prev, [form.date]: true }));
       showToast(
         isLançado
-          ? "Time Log salvo no DevOps e localmente!"
+          ? "Time Log salvo na TechsBCN e localmente!"
           : "Atividade registrada no banco local!",
         "success",
       );
@@ -759,7 +759,7 @@ export default function Page() {
         <div className="fixed bottom-6 right-6 bg-indigo-600 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3.5 z-50 animate-in fade-in slide-in-from-bottom-5">
           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
           <span className="text-sm font-medium">
-            Sincronizando com o DevOps...
+            Sincronizando com a TechsBCN...
           </span>
         </div>
       )}
@@ -1166,7 +1166,7 @@ export default function Page() {
               Apontamento
             </h2>
             <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> DevOps
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> TechsBCN
               Integrado
             </span>
           </div>
@@ -1236,11 +1236,21 @@ export default function Page() {
                 }
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
               >
-                <option value="US">User Story</option>
-                <option value="BUG">Bug</option>
-                <option value="Daily">Daily</option>
-                <option value="Planning">Planning</option>
-                <option value="QA Plan">QA Plan</option>
+                <option value="US" className="bg-slate-950 text-white">
+                  User Story
+                </option>
+                <option value="BUG" className="bg-slate-950 text-white">
+                  Bug
+                </option>
+                <option value="Daily" className="bg-slate-950 text-white">
+                  Daily
+                </option>
+                <option value="Planning" className="bg-slate-950 text-white">
+                  Planning
+                </option>
+                <option value="QA Plan" className="bg-slate-950 text-white">
+                  QA Plan
+                </option>
               </select>
             </div>
 
@@ -1252,27 +1262,48 @@ export default function Page() {
               <select
                 value={form.activity}
                 onChange={(e) => setForm({ ...form, activity: e.target.value })}
-                className="w-full bg-amber-950/10 border border-amber-900/30 rounded-xl px-3.5 py-3 text-sm text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all cursor-pointer"
+                className="w-full bg-slate-950 border border-amber-900/40 rounded-xl px-3.5 py-3 text-sm text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all cursor-pointer"
               >
-                <option value="Daily Scrum / Reunião diaria">
+                <option
+                  value="Daily Scrum / Reunião diaria"
+                  className="bg-slate-950 text-white py-2"
+                >
                   Daily Scrum / Reunião diária
                 </option>
-                <option value="Execução de Testes e Regressão">
+                <option
+                  value="Execução de Testes e Regressão"
+                  className="bg-slate-950 text-white py-2"
+                >
                   Execução de Testes e Regressão
                 </option>
-                <option value="Análise e Criação de Cenários de Testes">
+                <option
+                  value="Análise e Criação de Cenários de Testes"
+                  className="bg-slate-950 text-white py-2"
+                >
                   Análise e Criação de Cenários de Testes
                 </option>
-                <option value="Planning / Refinamento Técnico">
+                <option
+                  value="Planning / Refinamento Técnico"
+                  className="bg-slate-950 text-white py-2"
+                >
                   Planning / Refinamento Técnico
                 </option>
-                <option value="Code Review / Pull Requests">
+                <option
+                  value="Code Review / Pull Requests"
+                  className="bg-slate-950 text-white py-2"
+                >
                   Code Review / Pull Requests
                 </option>
-                <option value="Coding / Implementação">
+                <option
+                  value="Coding / Implementação"
+                  className="bg-slate-950 text-white py-2"
+                >
                   Coding / Implementação
                 </option>
-                <option value="Correção de Bugs (Bug Fixing)">
+                <option
+                  value="Correção de Bugs (Bug Fixing)"
+                  className="bg-slate-950 text-white py-2"
+                >
                   Correção de Bugs (Bug Fixing)
                 </option>
               </select>
@@ -1321,8 +1352,12 @@ export default function Page() {
                 }
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
               >
-                <option value="Pendente">Pendente</option>
-                <option value="Lançado">Lançado</option>
+                <option value="Pendente" className="bg-slate-950 text-white">
+                  Pendente
+                </option>
+                <option value="Lançado" className="bg-slate-950 text-white">
+                  Lançado
+                </option>
               </select>
             </div>
 
@@ -1612,11 +1647,27 @@ export default function Page() {
                       }
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white outline-none focus:border-indigo-500"
                     >
-                      <option value="US">User Story</option>
-                      <option value="BUG">Bug</option>
-                      <option value="Daily">Daily</option>
-                      <option value="Planning">Planning</option>
-                      <option value="QA Plan">QA Plan</option>
+                      <option value="US" className="bg-slate-950 text-white">
+                        User Story
+                      </option>
+                      <option value="BUG" className="bg-slate-950 text-white">
+                        Bug
+                      </option>
+                      <option value="Daily" className="bg-slate-950 text-white">
+                        Daily
+                      </option>
+                      <option
+                        value="Planning"
+                        className="bg-slate-950 text-white"
+                      >
+                        Planning
+                      </option>
+                      <option
+                        value="QA Plan"
+                        className="bg-slate-950 text-white"
+                      >
+                        QA Plan
+                      </option>
                     </select>
                   </div>
                 </div>
@@ -1635,19 +1686,33 @@ export default function Page() {
                     }
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white outline-none focus:border-indigo-500"
                   >
-                    <option value="Daily Scrum / Reunião diaria">
+                    <option
+                      value="Daily Scrum / Reunião diaria"
+                      className="bg-slate-950 text-white"
+                    >
                       Daily Scrum / Reunião diária
                     </option>
-                    <option value="Execução de Testes e Regressão">
+                    <option
+                      value="Execução de Testes e Regressão"
+                      className="bg-slate-950 text-white"
+                    >
                       Execução de Testes e Regressão
                     </option>
-                    <option value="Análise e Criação de Cenários de Testes">
+                    <option
+                      value="Análise e Criação de Cenários de Testes"
+                      className="bg-slate-950 text-white"
+                    >
                       Análise e Criação de Cenários de Testes
                     </option>
-                    <option value="Planning / Refinamento Técnico">
+                    <option
+                      value="Planning / Refinamento Técnico"
+                      className="bg-slate-950 text-white"
+                    >
                       Planning / Refinamento Técnico
                     </option>
-                    <option value="Outros">Outros</option>
+                    <option value="Outros" className="bg-slate-950 text-white">
+                      Outros
+                    </option>
                   </select>
                 </div>
 
@@ -1698,8 +1763,18 @@ export default function Page() {
                       }
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white outline-none focus:border-indigo-500"
                     >
-                      <option value="Pendente">Pendente</option>
-                      <option value="Lançado">Lançado</option>
+                      <option
+                        value="Pendente"
+                        className="bg-slate-950 text-white"
+                      >
+                        Pendente
+                      </option>
+                      <option
+                        value="Lançado"
+                        className="bg-slate-950 text-white"
+                      >
+                        Lançado
+                      </option>
                     </select>
                   </div>
                 </div>
