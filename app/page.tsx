@@ -1244,7 +1244,15 @@ export default function Page() {
                 <option value="Planning / Refinamento Técnico">
                   Planning / Refinamento Técnico
                 </option>
-                <option value="Outros">Outros</option>
+                <option value="Code Review / Pull Requests">
+                  Code Review / Pull Requests
+                </option>
+                <option value="Coding / Implementação">
+                  Coding / Implementação
+                </option>
+                  <option value="Correção de Bugs (Bug Fixing)">
+                  Correção de Bugs (Bug Fixing)
+                </option>
               </select>
             </div>
 
