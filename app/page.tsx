@@ -98,7 +98,9 @@ export default function Page() {
     new Date().toISOString().substring(0, 7),
   );
 
-  const [filterDate, setFilterDate] = useState("");
+  // Novos estados para o range de datas perto dos cards diários
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
 
   const [toasts, setToasts] = useState<ToastType[]>([]);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogType>(null);
@@ -531,7 +533,6 @@ export default function Page() {
     let newDocId = editingEntry.ado_doc_id || null;
     const isLançado = editingEntry.status === "Lançado";
 
-    // Se estiver lançado, removemos o anterior do DevOps (caso exista) e criamos um novo atualizado
     if (isLançado && editingEntry.card_id) {
       if (editingEntry.ado_doc_id) {
         await deleteFromAzureDevOps(editingEntry.ado_doc_id);
@@ -546,7 +547,6 @@ export default function Page() {
         editingEntry.date,
       );
     } else if (!isLançado && editingEntry.ado_doc_id) {
-      // Se alterou para pendente, garante que apaga do DevOps
       await deleteFromAzureDevOps(editingEntry.ado_doc_id);
       newDocId = null;
     }
@@ -676,13 +676,12 @@ export default function Page() {
     regularDaysThisMonth * (regularNetMinutes / 60) +
     fridaysThisMonth * (fridayNetMinutes / 60);
 
-  const filteredEntries = entries.filter((e) => {
-    const matchesMonth = e.date.startsWith(selectedMonth);
-    const matchesDate = filterDate ? e.date === filterDate : true;
-    return matchesMonth && matchesDate;
-  });
+  // Os 3 cards superiores calculam estritamente pelo mês selecionado nas configurações, isolados do range diário
+  const monthFilteredEntries = entries.filter((e) =>
+    e.date.startsWith(selectedMonth),
+  );
 
-  const totalLoggedMinutes = filteredEntries
+  const totalLoggedMinutes = monthFilteredEntries
     .filter((e) => e.status === "Lançado")
     .reduce(
       (acc, curr) =>
@@ -690,6 +689,13 @@ export default function Page() {
       0,
     );
   const totalLoggedHours = (totalLoggedMinutes / 60).toFixed(2);
+
+  // O range de datas (entre / between) afeta apenas o Acompanhamento Diário abaixo
+  const filteredEntries = entries.filter((e) => {
+    if (startDateFilter && e.date < startDateFilter) return false;
+    if (endDateFilter && e.date > endDateFilter) return false;
+    return true;
+  });
 
   const todayStr = new Date().toISOString().split("T")[0];
   const todayNetTarget = isDateFriday(todayStr)
@@ -1126,46 +1132,26 @@ export default function Page() {
           </div>
         )}
 
-        {/* OVERVIEW SECTION & FILTERS */}
+        {/* OVERVIEW SECTION & MONTH SELECTOR (Independent for cards) */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2">
           <h2 className="text-base font-bold text-white tracking-tight">
             Indicadores de Desempenho
           </h2>
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Filtro por Data Específica */}
-            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 focus-within:border-indigo-500 transition-all shadow-sm">
-              <CalendarDays className="w-4 h-4 text-indigo-400" />
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                className="bg-transparent text-sm font-medium text-white outline-none [color-scheme:dark]"
-                title="Filtrar por dia específico"
-              />
-              {filterDate && (
-                <button
-                  onClick={() => setFilterDate("")}
-                  className="text-xs text-slate-400 hover:text-white ml-1 font-semibold"
-                  title="Limpar filtro de dia"
-                >
-                  Limpar
-                </button>
-              )}
-            </div>
-
-            {/* Filtro por Mês */}
-            <div className="flex items-center gap-2.5 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 focus-within:border-indigo-500 transition-all shadow-sm">
-              <Filter className="w-4 h-4 text-indigo-400" />
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-transparent text-sm font-medium text-white outline-none [color-scheme:dark]"
-              />
-            </div>
+          <div className="flex items-center gap-2.5 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 focus-within:border-indigo-500 transition-all shadow-sm">
+            <Filter className="w-4 h-4 text-indigo-400" />
+            <span className="text-xs text-slate-400 font-medium">
+              Mês Base Metas:
+            </span>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-transparent text-sm font-medium text-white outline-none [color-scheme:dark]"
+            />
           </div>
         </div>
 
+        {/* 3 CARDS SUPERIORES */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-6 shadow-xl relative overflow-hidden group hover:border-slate-700 transition-all">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
@@ -1430,21 +1416,49 @@ export default function Page() {
           </form>
         </section>
 
-        {/* DAILY SUMMARY ACCORDION */}
+        {/* DAILY SUMMARY ACCORDION COM RANGE FILTER LOCAL */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <CalendarDays className="w-5 h-5 text-indigo-400" />{" "}
               Acompanhamento Diário por Data
             </h2>
-            <span className="text-xs font-medium text-slate-400">
-              {dailySortedDates.length} dias registrados
-            </span>
+
+            {/* Range Date Filter (Between) próximo aos cards diários */}
+            <div className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 shadow-sm">
+              <span className="text-xs font-semibold text-slate-400">
+                Período:
+              </span>
+              <input
+                type="date"
+                value={startDateFilter}
+                onChange={(e) => setStartDateFilter(e.target.value)}
+                className="bg-slate-950 text-xs text-white border border-slate-800 rounded-lg px-2 py-1 outline-none [color-scheme:dark]"
+              />
+              <span className="text-xs text-slate-500">até</span>
+              <input
+                type="date"
+                value={endDateFilter}
+                onChange={(e) => setEndDateFilter(e.target.value)}
+                className="bg-slate-950 text-xs text-white border border-slate-800 rounded-lg px-2 py-1 outline-none [color-scheme:dark]"
+              />
+              {(startDateFilter || endDateFilter) && (
+                <button
+                  onClick={() => {
+                    setStartDateFilter("");
+                    setEndDateFilter("");
+                  }}
+                  className="text-xs text-indigo-400 hover:text-white font-medium ml-2 underline"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
           </div>
 
           {dailySortedDates.length === 0 ? (
             <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-12 text-center text-slate-500 font-medium">
-              Nenhum apontamento cadastrado para este filtro.
+              Nenhum apontamento cadastrado para este período.
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3.5">
@@ -1729,13 +1743,6 @@ export default function Page() {
                         className="bg-slate-950 text-white"
                       >
                         QA Plan
-                      </option>
-                        <option value="Daily" className="bg-slate-950 text-white">
-                        QA Test
-                      </option>
-                      
-                        <option value="Daily" className="bg-slate-950 text-white">
-                        QA Aprovado
                       </option>
                     </select>
                   </div>
