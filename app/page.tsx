@@ -471,7 +471,7 @@ export default function Page() {
           .from("time_entries")
           .update({ status: "Lançado", ado_doc_id: docId })
           .eq("id", entry.id);
-        showToast("Time Log gravado na TechsBCN com sucesso!", "success");
+        showToast("Time Log gravado no DevOps com sucesso!", "success");
       }
       return;
     }
@@ -491,7 +491,7 @@ export default function Page() {
         .from("time_entries")
         .update({ status: "Pendente", ado_doc_id: null })
         .eq("id", entry.id);
-      showToast("Marcado como pendente e removido da TechsBCN.", "info");
+      showToast("Marcado como pendente e removido do DevOps.", "info");
     }
   };
 
@@ -499,7 +499,7 @@ export default function Page() {
     setConfirmDialog({
       title: "Excluir Lançamento",
       message:
-        "Tem certeza? Isso apagará o registro tanto daqui quanto lá na TechsBCN do Azure.",
+        "Tem certeza? Isso apagará o registro tanto daqui quanto lá no DevOps.",
       onConfirm: async () => {
         setEntries((prev) => prev.filter((e) => e.id !== entry.id));
         setConfirmDialog(null);
@@ -592,7 +592,7 @@ export default function Page() {
       setCollapsedDays((prev) => ({ ...prev, [form.date]: true }));
       showToast(
         isLançado
-          ? "Time Log salvo na TechsBCN e localmente!"
+          ? "Time Log salvo no DevOps e localmente!"
           : "Atividade registrada no banco local!",
         "success",
       );
@@ -697,10 +697,10 @@ export default function Page() {
 
   if (loadingAuth) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center gap-4">
+      <div className="min-h-screen bg-[#0a0f1d] flex flex-col justify-center items-center gap-4">
         <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
-        <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">
-          Carregando...
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+          Carregando Workspace...
         </span>
       </div>
     );
@@ -712,16 +712,16 @@ export default function Page() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className="pointer-events-auto bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3 animate-in slide-in-from-right-8 fade-in min-w-[280px] shadow-xl"
+            className="pointer-events-auto bg-slate-900/95 backdrop-blur-md border border-slate-800/80 rounded-2xl p-4 flex items-center gap-3.5 shadow-2xl animate-in slide-in-from-right-8 fade-in min-w-[300px]"
           >
             {toast.type === "success" && (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
             )}
             {toast.type === "error" && (
-              <XCircle className="w-5 h-5 text-rose-400" />
+              <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
             )}
             {toast.type === "info" && (
-              <Info className="w-5 h-5 text-blue-400" />
+              <Info className="w-5 h-5 text-indigo-400 shrink-0" />
             )}
             <span className="text-sm font-medium text-slate-200">
               {toast.message}
@@ -730,24 +730,24 @@ export default function Page() {
         ))}
       </div>
       {confirmDialog && (
-        <div className="fixed inset-0 bg-slate-950/80 z-[100] flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-lg font-semibold text-white mb-2">
+        <div className="fixed inset-0 bg-[#0a0f1d]/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-white tracking-tight">
               {confirmDialog.title}
             </h3>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-slate-400 leading-relaxed">
               {confirmDialog.message}
             </p>
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setConfirmDialog(null)}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmDialog.onConfirm}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-rose-600 hover:bg-rose-500 transition-colors"
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-500 shadow-lg shadow-rose-600/20 transition-all"
               >
                 Sim, excluir
               </button>
@@ -756,10 +756,10 @@ export default function Page() {
         </div>
       )}
       {isSyncingAdo && (
-        <div className="fixed bottom-6 right-6 bg-indigo-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-50 animate-in fade-in slide-in-from-bottom-5">
+        <div className="fixed bottom-6 right-6 bg-indigo-600 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3.5 z-50 animate-in fade-in slide-in-from-bottom-5">
           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
           <span className="text-sm font-medium">
-            Sincronizando com a TechsBCN...
+            Sincronizando com o DevOps...
           </span>
         </div>
       )}
@@ -768,64 +768,64 @@ export default function Page() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-[#0a0f1d] flex flex-col items-center justify-center p-4">
         <GlobalOverlays />
-        <div className="w-full max-w-[400px] space-y-8">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Clock className="w-6 h-6 text-white" />
+        <div className="w-full max-w-[420px] space-y-8">
+          <div className="text-center space-y-3">
+            <div className="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto shadow-xl shadow-indigo-500/20 mb-2">
+              <Clock className="w-7 h-7 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight">
               DevOps Hours
             </h1>
             <p className="text-sm text-slate-400">
-              Gerencie seus apontamentos de forma simples
+              Gerencie e sincronize seus apontamentos com eficiência
             </p>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
-            <form onSubmit={handleAuth} className="space-y-4">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-8 shadow-2xl">
+            <form onSubmit={handleAuth} className="space-y-5">
               <div>
-                <label className="text-xs font-medium text-slate-400 block mb-1.5">
-                  E-mail
+                <label className="text-xs font-semibold text-slate-400 block mb-2">
+                  E-mail profissional
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                  <Mail className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-500" />
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="dev@empresa.com"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-slate-950/60 border border-slate-800/80 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                <label className="text-xs font-semibold text-slate-400 block mb-2">
                   Senha
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                  <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-500" />
                   <input
                     type="password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-slate-950/60 border border-slate-800/80 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                   />
                 </div>
               </div>
               <button
                 type="submit"
                 disabled={isSubmittingAuth}
-                className="w-full bg-white hover:bg-slate-200 text-slate-950 font-semibold py-2.5 rounded-lg text-sm transition-colors mt-4 disabled:opacity-50"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-lg shadow-indigo-600/25 mt-2 disabled:opacity-50"
               >
                 {isSubmittingAuth
                   ? "Processando..."
                   : authMode === "login"
-                    ? "Entrar"
-                    : "Criar Conta"}
+                    ? "Entrar no Workspace"
+                    : "Criar Nova Conta"}
               </button>
             </form>
             <div className="text-center pt-6 mt-6 border-t border-slate-800/60">
@@ -833,7 +833,7 @@ export default function Page() {
                 onClick={() =>
                   setAuthMode(authMode === "login" ? "signup" : "login")
                 }
-                className="text-sm text-slate-400 hover:text-white transition-colors"
+                className="text-sm font-medium text-slate-400 hover:text-indigo-400 transition-colors"
               >
                 {authMode === "login"
                   ? "Ainda não tem conta? Cadastre-se"
@@ -847,29 +847,32 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
+    <div className="min-h-screen bg-[#0a0f1d] text-slate-200 font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
       <GlobalOverlays />
-      <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+        {/* HEADER */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-800/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600/10 border border-indigo-500/20 rounded-xl flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-indigo-400" />
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl flex items-center justify-center shadow-inner">
+              <BarChart3 className="w-6 h-6 text-indigo-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                DevOps Hours{" "}
-                <span className="text-xs font-normal bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-emerald-400" /> Seguro
-                  (Individual)
+              <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2.5">
+                DevOps Hours
+                <span className="text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />{" "}
+                  Seguro (Individual)
                 </span>
               </h1>
-              <p className="text-xs text-slate-400 font-medium">{user.email}</p>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">
+                {user.email}
+              </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <label className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-200 text-sm font-medium px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2">
-              <Upload className="w-4 h-4 text-slate-400" />
+            <label className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/80 text-slate-200 text-sm font-medium px-4 py-2.5 rounded-xl cursor-pointer transition-all flex items-center gap-2 shadow-sm">
+              <Upload className="w-4 h-4 text-indigo-400" />
               <span>{uploadingExcel ? "Importando..." : "Importar Excel"}</span>
               <input
                 type="file"
@@ -880,13 +883,13 @@ export default function Page() {
               />
             </label>
 
-            <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-lg flex items-center gap-2.5">
-              <Clock className="w-4 h-4 text-slate-400" />
+            <div className="bg-slate-900/90 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-3 shadow-sm">
+              <Clock className="w-4 h-4 text-indigo-400" />
               <div className="flex flex-col">
-                <span className="text-[10px] uppercase font-semibold text-slate-500 leading-none">
+                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider leading-none">
                   Hoje
                 </span>
-                <span className="font-mono font-medium text-slate-300 text-xs leading-none mt-1">
+                <span className="font-mono font-semibold text-slate-200 text-xs leading-none mt-1">
                   {loadingData ? "--:--" : remainingTodayFormatted} restantes
                 </span>
               </div>
@@ -894,30 +897,31 @@ export default function Page() {
 
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`p-2.5 text-slate-400 hover:text-white bg-slate-900 border ${showSettings ? "border-indigo-500 text-indigo-400" : "border-slate-800"} rounded-lg transition-colors`}
+              className={`p-2.5 bg-slate-900/90 border rounded-xl transition-all shadow-sm ${showSettings ? "border-indigo-500 text-indigo-400 bg-indigo-500/10" : "border-slate-800 text-slate-400 hover:text-white hover:border-slate-700"}`}
               title="Configurações"
             >
-              <Settings className="w-4 h-4 text-slate-400" />
+              <Settings className="w-4 h-4" />
             </button>
 
             <button
               onClick={handleLogout}
-              className="p-2.5 text-slate-400 hover:text-rose-400 bg-slate-900 border border-slate-800 hover:border-rose-900/50 hover:bg-rose-500/10 rounded-lg transition-colors"
+              className="p-2.5 text-slate-400 hover:text-rose-400 bg-slate-900/90 border border-slate-800 hover:border-rose-900/50 hover:bg-rose-500/10 rounded-xl transition-all shadow-sm"
               title="Sair"
             >
-              <LogOut className="w-4 h-4 text-slate-400" />
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </header>
 
+        {/* SETTINGS PANEL */}
         {showSettings && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl animate-in slide-in-from-top-4 fade-in space-y-6">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 lg:p-8 shadow-2xl animate-in slide-in-from-top-4 fade-in space-y-6">
             <form onSubmit={handleSaveSettings} className="space-y-6">
               <div>
-                <div className="flex items-center justify-between mb-4 border-b border-slate-800/60 pb-3">
+                <div className="flex items-center justify-between mb-4 border-b border-slate-800/80 pb-3">
                   <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-slate-400" /> 1. Jornada
-                    Padrão
+                    <Clock className="w-4 h-4 text-indigo-400" /> 1. Jornada
+                    Padrão de Trabalho
                   </h2>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -934,12 +938,12 @@ export default function Page() {
                           work_start_time: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
                     />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate-400 block mb-2">
-                      Fim (Segunda-Quinta)
+                      Fim (Segunda a Quinta)
                     </label>
                     <input
                       type="time"
@@ -950,7 +954,7 @@ export default function Page() {
                           work_end_time: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
                     />
                   </div>
                   <div>
@@ -966,7 +970,7 @@ export default function Page() {
                           friday_work_end_time: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
                     />
                   </div>
                   <div>
@@ -982,20 +986,20 @@ export default function Page() {
                           lunch_break_minutes: Number(e.target.value),
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-4 border-b border-slate-800/60 pb-3">
+                <div className="flex items-center justify-between mb-4 border-b border-slate-800/80 pb-3">
                   <h2 className="text-sm font-bold text-white flex items-center gap-2">
                     <CloudCog className="w-4 h-4 text-emerald-400" /> 2. Azure
-                    DevOps & TechsBCN (Suas Credenciais Pessoais)
+                    DevOps & TechsBCN (Credenciais Pessoais)
                   </h2>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 bg-slate-950 p-5 rounded-xl border border-slate-800/50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
                   <div>
                     <label className="text-xs font-medium text-slate-400 block mb-2">
                       Organização
@@ -1009,7 +1013,7 @@ export default function Page() {
                           ado_organization: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
                     />
                   </div>
                   <div>
@@ -1025,7 +1029,7 @@ export default function Page() {
                           ado_project: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
                     />
                   </div>
                   <div>
@@ -1039,7 +1043,7 @@ export default function Page() {
                       onChange={(e) =>
                         setSettings({ ...settings, ado_pat: e.target.value })
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
                     />
                   </div>
                   <div>
@@ -1055,7 +1059,7 @@ export default function Page() {
                           ado_user_id: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors text-xs font-mono"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono text-xs"
                     />
                   </div>
                   <div className="lg:col-span-2">
@@ -1071,7 +1075,7 @@ export default function Page() {
                           ado_user_name: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
                     />
                   </div>
                 </div>
@@ -1080,84 +1084,90 @@ export default function Page() {
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  className="bg-white hover:bg-slate-200 text-slate-900 text-sm font-semibold px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/25 flex items-center gap-2"
                 >
-                  <Save className="w-4 h-4 text-slate-900" /> Salvar
-                  Configurações
+                  <Save className="w-4 h-4 text-white" /> Salvar Configurações
                 </button>
               </div>
             </form>
           </div>
         )}
 
+        {/* OVERVIEW SECTION & MONTH FILTER */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            Visão Geral
+          <h2 className="text-base font-bold text-white tracking-tight">
+            Indicadores de Desempenho
           </h2>
-          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 focus-within:border-indigo-500 transition-colors">
-            <Filter className="w-4 h-4 text-slate-400" />
+          <div className="flex items-center gap-2.5 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 focus-within:border-indigo-500 transition-all shadow-sm">
+            <Filter className="w-4 h-4 text-indigo-400" />
             <input
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent text-sm text-white outline-none [color-scheme:dark]"
+              className="bg-transparent text-sm font-medium text-white outline-none [color-scheme:dark]"
             />
           </div>
         </div>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-6 shadow-xl relative overflow-hidden group hover:border-slate-700 transition-all">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
               Total Lançado (Mês)
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-white font-mono">
+              <span className="text-4xl font-black text-white font-mono tracking-tight">
                 {totalLoggedHours}
               </span>
-              <span className="text-slate-500 text-sm">horas</span>
+              <span className="text-slate-400 text-sm font-medium">horas</span>
             </div>
+            <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl group-hover:bg-indigo-500/10 transition-all"></div>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <div className="flex justify-between items-start mb-1">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-6 shadow-xl relative overflow-hidden group hover:border-slate-700 transition-all">
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                 Meta Dinâmica
               </span>
-              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-semibold bg-slate-800 text-indigo-300 px-2.5 py-1 rounded-full border border-slate-700/60">
                 {regularDaysThisMonth} Normais / {fridaysThisMonth} Sextas
               </span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-white font-mono">
+              <span className="text-4xl font-black text-white font-mono tracking-tight">
                 {calculatedMonthlyGoal.toFixed(2)}
               </span>
-              <span className="text-slate-500 text-sm">horas</span>
+              <span className="text-slate-400 text-sm font-medium">horas</span>
             </div>
+            <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl group-hover:bg-indigo-500/10 transition-all"></div>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-6 shadow-xl relative overflow-hidden group hover:border-slate-700 transition-all">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
               Saldo a ser cumprido
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-white font-mono">
+              <span className="text-4xl font-black text-white font-mono tracking-tight">
                 {Math.max(
                   0,
                   calculatedMonthlyGoal - parseFloat(totalLoggedHours),
                 ).toFixed(2)}
               </span>
-              <span className="text-slate-500 text-sm">horas</span>
+              <span className="text-slate-400 text-sm font-medium">horas</span>
             </div>
+            <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-all"></div>
           </div>
         </section>
 
-        {/* REGISTRO DE TIME LOG COM ÍCONES NAS LABELS */}
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-5">
+        {/* TIME LOG FORM */}
+        <section className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 lg:p-8 shadow-xl relative overflow-hidden">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800/60">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Plus className="w-4 h-4 text-slate-400" /> Registro de Time Log
+              <Plus className="w-4 h-4 text-indigo-400" /> Novo Registro de
+              Apontamento
             </h2>
-            <span className="text-[10px] font-medium text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-              <ShieldCheck className="w-3 h-3 text-emerald-400" /> TechsBCN via
-              Edge Function
+            <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> DevOps
+              Integrado
             </span>
           </div>
 
@@ -1165,33 +1175,31 @@ export default function Page() {
             onSubmit={handleSubmitEntry}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 relative z-10"
           >
-            {/* DATA */}
             <div className="lg:col-span-1">
-              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+              <label className="text-xs font-semibold text-slate-400 flex items-center gap-2 mb-2">
                 <CalendarDays className="w-3.5 h-3.5 text-indigo-400" /> Data
               </label>
               <input
                 type="date"
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
               />
             </div>
 
-            {/* PERÍODO (INÍCIO / FIM) */}
             <div className="lg:col-span-2 xl:col-span-2">
-              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+              <label className="text-xs font-semibold text-slate-400 flex items-center gap-2 mb-2">
                 <Clock className="w-3.5 h-3.5 text-indigo-400" /> Período
-                (Início/Fim)
+                (Início / Fim)
               </label>
-              <div className="flex gap-2.5">
+              <div className="flex gap-2">
                 <input
                   type="time"
                   value={form.start_time}
                   onChange={(e) =>
                     setForm({ ...form, start_time: e.target.value })
                   }
-                  className="w-1/2 bg-slate-950 border border-slate-800 rounded-lg px-1 sm:px-2 py-2.5 text-sm text-white text-center focus:border-indigo-500 outline-none transition-colors"
+                  className="w-1/2 bg-slate-950 border border-slate-800 rounded-xl px-2 py-3 text-sm font-mono text-white text-center focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
                 />
                 <input
                   type="time"
@@ -1199,36 +1207,34 @@ export default function Page() {
                   onChange={(e) =>
                     setForm({ ...form, end_time: e.target.value })
                   }
-                  className="w-1/2 bg-slate-950 border border-slate-800 rounded-lg px-1 sm:px-2 py-2.5 text-sm text-white text-center focus:border-indigo-500 outline-none transition-colors"
+                  className="w-1/2 bg-slate-950 border border-slate-800 rounded-xl px-2 py-3 text-sm font-mono text-white text-center focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
                 />
               </div>
             </div>
 
-            {/* DEVOPS ID */}
             <div className="lg:col-span-1">
-              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+              <label className="text-xs font-semibold text-slate-400 flex items-center gap-2 mb-2">
                 <Hash className="w-3.5 h-3.5 text-indigo-400" /> DevOps ID
               </label>
               <input
                 type="text"
-                placeholder="12345"
+                placeholder="Ex: 14589"
                 value={form.card_id}
                 onChange={(e) => setForm({ ...form, card_id: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm font-mono text-white placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
               />
             </div>
 
-            {/* TIPO DO CARD */}
             <div className="lg:col-span-2 xl:col-span-1">
-              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
-                <Tag className="w-3.5 h-3.5 text-indigo-400" /> Tipo do Card
+              <label className="text-xs font-semibold text-slate-400 flex items-center gap-2 mb-2">
+                <Tag className="w-3.5 h-3.5 text-indigo-400" /> Tipo
               </label>
               <select
                 value={form.card_type}
                 onChange={(e) =>
                   setForm({ ...form, card_type: e.target.value })
                 }
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
               >
                 <option value="US">User Story</option>
                 <option value="BUG">Bug</option>
@@ -1238,19 +1244,18 @@ export default function Page() {
               </select>
             </div>
 
-            {/* ACTIVITY */}
             <div className="lg:col-span-2 xl:col-span-3">
-              <label className="text-[11px] font-medium text-amber-400 flex items-center gap-1.5 mb-1.5">
+              <label className="text-xs font-semibold text-amber-400/90 flex items-center gap-2 mb-2">
                 <CheckSquare className="w-3.5 h-3.5 text-amber-400" /> Activity
                 (Categoria)
               </label>
               <select
                 value={form.activity}
                 onChange={(e) => setForm({ ...form, activity: e.target.value })}
-                className="w-full bg-amber-950/20 border border-amber-900/40 rounded-lg px-3 py-2.5 text-sm text-white focus:border-amber-500 outline-none transition-colors"
+                className="w-full bg-amber-950/10 border border-amber-900/30 rounded-xl px-3.5 py-3 text-sm text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all cursor-pointer"
               >
                 <option value="Daily Scrum / Reunião diaria">
-                  Daily Scrum / Reunião diaria
+                  Daily Scrum / Reunião diária
                 </option>
                 <option value="Execução de Testes e Regressão">
                   Execução de Testes e Regressão
@@ -1273,64 +1278,59 @@ export default function Page() {
               </select>
             </div>
 
-            {/* NOTES */}
             <div className="lg:col-span-2 xl:col-span-3">
-              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+              <label className="text-xs font-semibold text-slate-400 flex items-center gap-2 mb-2">
                 <FileText className="w-3.5 h-3.5 text-indigo-400" /> Notes
                 (Descrição)
               </label>
               <input
                 type="text"
-                placeholder="Ex: Escrevi cenários..."
+                placeholder="Detalhes do que foi executado..."
                 value={form.description}
                 onChange={(e) =>
                   setForm({ ...form, description: e.target.value })
                 }
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
               />
             </div>
 
-            {/* LINK URL */}
             <div className="lg:col-span-2 xl:col-span-2">
-              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+              <label className="text-xs font-semibold text-slate-400 flex items-center gap-2 mb-2">
                 <LinkIcon className="w-3.5 h-3.5 text-indigo-400" /> Link URL
                 (Opcional)
               </label>
               <input
                 type="url"
-                placeholder="https://..."
+                placeholder="https://dev.azure.com/..."
                 value={form.card_link}
                 onChange={(e) =>
                   setForm({ ...form, card_link: e.target.value })
                 }
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
               />
             </div>
 
-            {/* STATUS INICIAL */}
             <div className="lg:col-span-2 xl:col-span-1">
-              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+              <label className="text-xs font-semibold text-slate-400 flex items-center gap-2 mb-2">
                 <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" /> Status
-                Inicial
               </label>
               <select
                 value={form.status}
                 onChange={(e) =>
                   setForm({ ...form, status: e.target.value as any })
                 }
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
               >
                 <option value="Pendente">Pendente</option>
                 <option value="Lançado">Lançado</option>
               </select>
             </div>
 
-            {/* BOTÃO SALVAR */}
             <div className="lg:col-span-2 xl:col-span-2 flex items-end">
               <button
                 type="submit"
                 disabled={isSyncingAdo}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg text-sm py-2.5 transition-colors disabled:opacity-50"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-sm py-3 transition-all shadow-lg shadow-indigo-600/25 disabled:opacity-50"
               >
                 Salvar Time Log
               </button>
@@ -1338,25 +1338,24 @@ export default function Page() {
           </form>
         </section>
 
-        {/* SEÇÃO DE ACOMPANHAMENTO DIÁRIO COLAPSÁVEL */}
+        {/* DAILY SUMMARY ACCORDION */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
               <CalendarDays className="w-5 h-5 text-indigo-400" />{" "}
               Acompanhamento Diário por Data
             </h2>
-            <span className="text-xs text-slate-400">
-              {dailySortedDates.length} dias registrados no mês (Clique no card
-              para expandir)
+            <span className="text-xs font-medium text-slate-400">
+              {dailySortedDates.length} dias registrados no mês
             </span>
           </div>
 
           {dailySortedDates.length === 0 ? (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-500">
+            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-12 text-center text-slate-500 font-medium">
               Nenhum apontamento cadastrado neste mês.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-3.5">
               {dailySortedDates.map((dateStr) => {
                 const dayEntries = filteredEntries.filter(
                   (e) => e.date === dateStr,
@@ -1389,21 +1388,21 @@ export default function Page() {
                 return (
                   <div
                     key={dateStr}
-                    className="bg-slate-900 border border-slate-800 rounded-2xl transition-all shadow-lg overflow-hidden"
+                    className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-3xl transition-all shadow-xl overflow-hidden hover:border-slate-700/80"
                   >
                     <div
                       onClick={() => toggleDayCollapse(dateStr)}
-                      className="p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 cursor-pointer hover:bg-slate-800/40 transition-colors select-none"
+                      className="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer hover:bg-slate-800/30 transition-colors select-none"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-4">
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono font-bold text-sm shrink-0 ${isComplete ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-indigo-600/10 text-indigo-400 border border-indigo-500/20"}`}
+                          className={`w-12 h-12 rounded-2xl flex items-center justify-center font-mono font-bold text-sm shrink-0 shadow-inner ${isComplete ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-indigo-600/10 text-indigo-400 border border-indigo-500/20"}`}
                         >
                           {dateStr.split("-")[2]}
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-white font-semibold text-sm">
+                          <div className="flex items-center gap-2.5">
+                            <h3 className="text-white font-semibold text-sm capitalize">
                               {new Date(
                                 dateStr + "T12:00:00",
                               ).toLocaleDateString("pt-BR", {
@@ -1414,12 +1413,12 @@ export default function Page() {
                               })}
                             </h3>
                             {isFriday && (
-                              <span className="text-[10px] bg-indigo-950 text-indigo-400 border border-indigo-800/50 px-2 py-0.5 rounded-full">
+                              <span className="text-[10px] font-semibold bg-indigo-950/80 text-indigo-400 border border-indigo-800/50 px-2.5 py-0.5 rounded-full">
                                 Sexta-feira
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs text-slate-400 font-medium mt-0.5 block">
                             {dayEntries.length}{" "}
                             {dayEntries.length === 1 ? "registro" : "registros"}{" "}
                             • Lançados: {(loggedDayMin / 60).toFixed(2)}h
@@ -1427,19 +1426,19 @@ export default function Page() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                      <div className="flex items-center gap-5 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-right">
-                          <div className="text-xs font-mono font-bold text-white">
+                          <div className="text-sm font-mono font-bold text-white">
                             {(totalDayMin / 60).toFixed(2)}h{" "}
-                            <span className="text-slate-500 font-normal">
+                            <span className="text-slate-500 font-normal text-xs">
                               / {(dayTargetMin / 60).toFixed(2)}h
                             </span>
                           </div>
-                          <span className="text-[10px] text-slate-400">
-                            {progressPercent}% da meta
+                          <span className="text-[10px] font-semibold text-slate-400">
+                            {progressPercent}% da meta diária
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           {isComplete ? (
                             <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
                           ) : (
@@ -1447,7 +1446,7 @@ export default function Page() {
                               <div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div>
                             </div>
                           )}
-                          <div className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                          <div className="p-1.5 rounded-xl bg-slate-800/80 text-slate-400 hover:text-white transition-colors">
                             {isExpanded ? (
                               <ChevronUp className="w-4 h-4 text-indigo-400" />
                             ) : (
@@ -1460,14 +1459,14 @@ export default function Page() {
 
                     <div className="w-full bg-slate-950 h-1 rounded-none overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-500 ${isComplete ? "bg-emerald-500" : "bg-indigo-500"}`}
+                        className={`h-full transition-all duration-500 ${isComplete ? "bg-emerald-500 shadow-lg shadow-emerald-500/50" : "bg-indigo-500"}`}
                         style={{ width: `${progressPercent}%` }}
                       ></div>
                     </div>
 
                     {isExpanded && (
-                      <div className="p-4 sm:p-5 bg-slate-950/40 border-t border-slate-800/60 animate-in fade-in duration-200 space-y-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      <div className="p-5 bg-slate-950/60 border-t border-slate-800/80 animate-in fade-in duration-200 space-y-3.5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                           {dayEntries.map((entry) => {
                             const durMin = getEntryDurationMinutes(
                               entry.start_time,
@@ -1479,17 +1478,17 @@ export default function Page() {
                             return (
                               <div
                                 key={entry.id}
-                                className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between gap-3 hover:border-slate-700 transition-colors shadow-sm"
+                                className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between gap-3.5 hover:border-slate-700 transition-all shadow-sm group"
                               >
-                                <div className="space-y-1.5">
+                                <div className="space-y-2">
                                   <div className="flex justify-between items-start gap-2">
-                                    <span className="font-mono text-xs font-medium text-white">
+                                    <span className="font-mono text-xs font-semibold text-white">
                                       {entry.card_link ? (
                                         <a
                                           href={entry.card_link}
                                           target="_blank"
                                           rel="noreferrer"
-                                          className="text-indigo-400 hover:underline"
+                                          className="text-indigo-400 hover:underline flex items-center gap-1"
                                         >
                                           #{entry.card_id || "Link"}
                                         </a>
@@ -1499,21 +1498,21 @@ export default function Page() {
                                         "Sem ID"
                                       )}
                                     </span>
-                                    <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-slate-800 text-slate-300">
+                                    <span className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700/50">
                                       {entry.card_type}
                                     </span>
                                   </div>
-                                  <p className="text-xs text-amber-400 font-medium line-clamp-1">
+                                  <p className="text-xs text-amber-400 font-semibold line-clamp-1">
                                     {entry.activity}
                                   </p>
-                                  <p className="text-xs text-slate-300 line-clamp-2">
+                                  <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
                                     {entry.description || "Sem descrição"}
                                   </p>
                                 </div>
 
-                                <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
-                                  <div className="flex items-center gap-2 font-mono text-slate-300">
-                                    <div className="w-6 h-6 rounded-md bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                                <div className="flex items-center justify-between pt-3 border-t border-slate-800/80 text-xs">
+                                  <div className="flex items-center gap-2.5 font-mono text-slate-300">
+                                    <div className="w-6 h-6 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
                                       <Clock className="w-3.5 h-3.5 text-indigo-400" />
                                     </div>
                                     <span>
@@ -1524,17 +1523,17 @@ export default function Page() {
                                     </span>
                                   </div>
                                   <span
-                                    className={`px-2 py-0.5 rounded text-[9px] font-medium ${isLançado ? "text-emerald-400 bg-emerald-400/10" : "text-amber-400 bg-amber-400/10"}`}
+                                    className={`px-2.5 py-0.5 rounded-md text-[10px] font-semibold ${isLançado ? "text-emerald-400 bg-emerald-400/10 border border-emerald-500/20" : "text-amber-400 bg-amber-400/10 border border-amber-500/20"}`}
                                   >
                                     {entry.status}
                                   </span>
                                 </div>
 
-                                <div className="flex items-center justify-end gap-1 pt-1 border-t border-slate-800/50">
+                                <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-800/60">
                                   <button
                                     onClick={() => toggleStatus(entry)}
                                     disabled={isSyncingAdo}
-                                    className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${isLançado ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white"}`}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${isLançado ? "bg-slate-800/80 text-slate-400 hover:text-white" : "bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white border border-indigo-500/30"}`}
                                   >
                                     {isLançado
                                       ? "Tornar Pendente"
@@ -1542,17 +1541,17 @@ export default function Page() {
                                   </button>
                                   <button
                                     onClick={() => setEditingEntry(entry)}
-                                    className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors"
+                                    className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
                                     title="Editar"
                                   >
-                                    <Pencil className="w-3 h-3 text-slate-400" />
+                                    <Pencil className="w-3.5 h-3.5 text-slate-400" />
                                   </button>
                                   <button
                                     onClick={() => confirmDelete(entry)}
-                                    className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
+                                    className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-xl transition-colors"
                                     title="Excluir"
                                   >
-                                    <Trash2 className="w-3 h-3 text-slate-400" />
+                                    <Trash2 className="w-3.5 h-3.5 text-slate-400" />
                                   </button>
                                 </div>
                               </div>
@@ -1568,22 +1567,23 @@ export default function Page() {
           )}
         </section>
 
+        {/* EDIT MODAL */}
         {editingEntry && (
-          <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 animate-in fade-in">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative">
+          <div className="fixed inset-0 bg-[#0a0f1d]/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 lg:p-8 shadow-2xl relative">
               <button
                 onClick={() => setEditingEntry(null)}
-                className="absolute top-5 right-5 p-1 text-slate-500 hover:text-white transition-colors"
+                className="absolute top-6 right-6 p-1.5 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-xl transition-colors"
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className="w-5 h-5" />
               </button>
-              <h3 className="text-lg font-bold text-white mb-5">
-                Editar Registro
+              <h3 className="text-lg font-bold text-white mb-6 tracking-tight">
+                Editar Apontamento
               </h3>
               <form onSubmit={handleUpdateEntry} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                    <label className="text-xs font-semibold text-slate-400 block mb-2">
                       Data
                     </label>
                     <input
@@ -1595,12 +1595,12 @@ export default function Page() {
                           date: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white outline-none focus:border-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
-                      Tipo
+                    <label className="text-xs font-semibold text-slate-400 block mb-2">
+                      Tipo do Card
                     </label>
                     <select
                       value={editingEntry.card_type}
@@ -1610,7 +1610,7 @@ export default function Page() {
                           card_type: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white outline-none focus:border-indigo-500"
                     >
                       <option value="US">User Story</option>
                       <option value="BUG">Bug</option>
@@ -1622,7 +1622,7 @@ export default function Page() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-amber-400 block mb-1.5">
+                  <label className="text-xs font-semibold text-amber-400 block mb-2">
                     Activity (Categoria)
                   </label>
                   <select
@@ -1633,10 +1633,10 @@ export default function Page() {
                         activity: e.target.value,
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white outline-none focus:border-indigo-500"
                   >
                     <option value="Daily Scrum / Reunião diaria">
-                      Daily Scrum / Reunião diaria
+                      Daily Scrum / Reunião diária
                     </option>
                     <option value="Execução de Testes e Regressão">
                       Execução de Testes e Regressão
@@ -1653,7 +1653,7 @@ export default function Page() {
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                    <label className="text-xs font-semibold text-slate-400 block mb-2">
                       Início
                     </label>
                     <input
@@ -1665,11 +1665,11 @@ export default function Page() {
                           start_time: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm font-mono text-white outline-none focus:border-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                    <label className="text-xs font-semibold text-slate-400 block mb-2">
                       Fim
                     </label>
                     <input
@@ -1681,11 +1681,11 @@ export default function Page() {
                           end_time: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm font-mono text-white outline-none focus:border-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                    <label className="text-xs font-semibold text-slate-400 block mb-2">
                       Status
                     </label>
                     <select
@@ -1696,16 +1696,17 @@ export default function Page() {
                           status: e.target.value as any,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white outline-none focus:border-indigo-500"
                     >
                       <option value="Pendente">Pendente</option>
                       <option value="Lançado">Lançado</option>
                     </select>
                   </div>
                 </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-1">
-                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                    <label className="text-xs font-semibold text-slate-400 block mb-2">
                       ID DevOps
                     </label>
                     <input
@@ -1717,12 +1718,12 @@ export default function Page() {
                           card_id: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm font-mono text-white outline-none focus:border-indigo-500"
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-medium text-slate-400 block mb-1.5">
-                      Link
+                    <label className="text-xs font-semibold text-slate-400 block mb-2">
+                      Link URL
                     </label>
                     <input
                       type="url"
@@ -1733,13 +1734,14 @@ export default function Page() {
                           card_link: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
+
                 <div>
-                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
-                    Notes
+                  <label className="text-xs font-semibold text-slate-400 block mb-2">
+                    Notes (Descrição)
                   </label>
                   <input
                     type="text"
@@ -1750,20 +1752,21 @@ export default function Page() {
                         description: e.target.value,
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white outline-none focus:border-indigo-500"
                   />
                 </div>
-                <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-slate-800/50">
+
+                <div className="flex justify-end gap-3 pt-5 mt-2 border-t border-slate-800/80">
                   <button
                     type="button"
                     onClick={() => setEditingEntry(null)}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                    className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2 rounded-lg text-sm transition-colors"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-indigo-600/25 transition-all"
                   >
                     Salvar Alterações
                   </button>
