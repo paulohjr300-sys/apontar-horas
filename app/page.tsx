@@ -10,14 +10,9 @@ import {
   LogOut,
   Lock,
   Mail,
-  AlertCircle,
   Save,
-  ExternalLink,
-  Check,
-  Hourglass,
   Upload,
   BarChart3,
-  Calendar,
   Pencil,
   Trash2,
   X,
@@ -25,6 +20,8 @@ import {
   XCircle,
   Info,
   Filter,
+  CloudCog,
+  ShieldCheck,
 } from "lucide-react";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -35,19 +32,26 @@ interface TimeEntry {
   id: string;
   date: string;
   card_type: string;
+  activity: string;
   start_time: string;
   end_time: string;
   card_id: string;
   description: string;
   card_link: string;
   status: "Pendente" | "Lançado";
+  ado_doc_id?: string;
 }
 
 interface UserSettings {
   work_start_time: string;
   work_end_time: string;
-  friday_work_end_time: string; // <-- Novo campo adicionado
+  friday_work_end_time: string;
   lunch_break_minutes: number;
+  ado_organization?: string;
+  ado_project?: string;
+  ado_pat?: string;
+  ado_user_name?: string;
+  ado_user_id?: string;
 }
 
 type ToastType = {
@@ -75,6 +79,7 @@ export default function Page() {
   const [showSettings, setShowSettings] = useState(false);
   const [uploadingExcel, setUploadingExcel] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+  const [isSyncingAdo, setIsSyncingAdo] = useState(false);
 
   const [selectedMonth, setSelectedMonth] = useState(() =>
     new Date().toISOString().substring(0, 7),
@@ -86,13 +91,19 @@ export default function Page() {
   const [settings, setSettings] = useState<UserSettings>({
     work_start_time: "09:00",
     work_end_time: "19:20",
-    friday_work_end_time: "18:20", // <-- Valor padrão para sexta
+    friday_work_end_time: "18:20",
     lunch_break_minutes: 60,
+    ado_organization: "aguiabranca",
+    ado_project: "Lets",
+    ado_pat: "",
+    ado_user_name: "",
+    ado_user_id: "",
   });
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
     card_type: "US",
+    activity: "Análise e Criação de Cenários de Testes",
     start_time: "09:00",
     end_time: "10:00",
     card_id: "",
@@ -142,8 +153,13 @@ export default function Page() {
         setSettings({
           work_start_time: settingsData.work_start_time || "09:00",
           work_end_time: settingsData.work_end_time || "19:20",
-          friday_work_end_time: settingsData.friday_work_end_time || "18:20", // <-- Busca do banco
+          friday_work_end_time: settingsData.friday_work_end_time || "18:20",
           lunch_break_minutes: settingsData.lunch_break_minutes ?? 60,
+          ado_organization: settingsData.ado_organization || "aguiabranca",
+          ado_project: settingsData.ado_project || "Lets",
+          ado_pat: settingsData.ado_pat || "",
+          ado_user_name: settingsData.ado_user_name || "",
+          ado_user_id: settingsData.ado_user_id || "",
         });
       }
       const { data: entriesData } = await supabase
@@ -199,8 +215,13 @@ export default function Page() {
       user_id: user.id,
       work_start_time: settings.work_start_time,
       work_end_time: settings.work_end_time,
-      friday_work_end_time: settings.friday_work_end_time, // <-- Salva no banco
+      friday_work_end_time: settings.friday_work_end_time,
       lunch_break_minutes: settings.lunch_break_minutes,
+      ado_organization: settings.ado_organization,
+      ado_project: settings.ado_project,
+      ado_pat: settings.ado_pat,
+      ado_user_name: settings.ado_user_name,
+      ado_user_id: settings.ado_user_id,
       updated_at: new Date().toISOString(),
     });
     if (!error) {
@@ -210,6 +231,73 @@ export default function Page() {
       showToast("Erro ao salvar as configurações.", "error");
     }
     setLoadingData(false);
+  };
+
+  const syncToAzureDevOps = async (
+    cardId: string,
+    start: string,
+    end: string,
+    activity: string,
+    notes: string,
+    date: string,
+  ) => {
+    if (
+      !settings.ado_organization ||
+      !settings.ado_project ||
+      !settings.ado_pat ||
+      !settings.ado_user_id
+    ) {
+      showToast(
+        "Preencha todas as suas configurações do Azure (Organização, Projeto, Token e User ID).",
+        "error",
+      );
+      return null;
+    }
+
+    setIsSyncingAdo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-ado", {
+        body: {
+          cardId,
+          start,
+          end,
+          activity,
+          notes,
+          date,
+          organization: settings.ado_organization,
+          project: settings.ado_project,
+          pat: settings.ado_pat,
+          userName: settings.ado_user_name,
+          userId: settings.ado_user_id,
+        },
+      });
+
+      if (error) throw new Error(error.message || "Falha na Edge Function");
+      if (data?.error) throw new Error(data.error);
+
+      return data?.docId || null;
+    } catch (err: any) {
+      showToast(err.message || "Erro ao sincronizar com o Azure", "error");
+      return null;
+    } finally {
+      setIsSyncingAdo(false);
+    }
+  };
+
+  const deleteFromAzureDevOps = async (docId?: string) => {
+    if (!docId || !settings.ado_organization || !settings.ado_pat) return;
+    try {
+      await supabase.functions.invoke("sync-ado", {
+        body: {
+          action: "DELETE",
+          docId,
+          organization: settings.ado_organization,
+          pat: settings.ado_pat,
+        },
+      });
+    } catch (err) {
+      console.error("Erro ao deletar no Azure:", err);
+    }
   };
 
   const parseExcelTime = (val: any): string => {
@@ -292,6 +380,7 @@ export default function Page() {
                 user_id: user.id,
                 date: formattedDate,
                 card_type: String(cardType || "US"),
+                activity: "Outros",
                 start_time: startTime,
                 end_time: endTime,
                 card_id: cardId ? String(cardId) : "",
@@ -307,22 +396,14 @@ export default function Page() {
           const { error } = await supabase
             .from("time_entries")
             .insert(rowsToInsert);
-          if (error)
-            showToast("Erro ao importar para o banco de dados.", "error");
+          if (error) showToast("Erro ao importar.", "error");
           else {
-            showToast(
-              `${rowsToInsert.length} lançamentos importados com sucesso!`,
-              "success",
-            );
+            showToast(`${rowsToInsert.length} importados!`, "success");
             fetchUserData();
           }
-        } else
-          showToast(
-            "Nenhum registro válido foi encontrado na planilha.",
-            "info",
-          );
+        } else showToast("Planilha vazia ou formato inválido.", "info");
       } catch (err) {
-        showToast("Falha ao processar o arquivo Excel.", "error");
+        showToast("Falha ao processar arquivo Excel.", "error");
       } finally {
         setUploadingExcel(false);
       }
@@ -343,37 +424,76 @@ export default function Page() {
     return endMin >= startMin ? endMin - startMin : 1440 - startMin + endMin;
   };
 
-  const toggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === "Lançado" ? "Pendente" : "Lançado";
-    setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, status: newStatus as any } : e)),
-    );
-    const { error } = await supabase
-      .from("time_entries")
-      .update({ status: newStatus })
-      .eq("id", id);
-    if (error) {
-      showToast("Erro ao atualizar o status.", "error");
-      fetchUserData();
+  const toggleStatus = async (entry: TimeEntry) => {
+    const newStatus = entry.status === "Lançado" ? "Pendente" : "Lançado";
+
+    if (newStatus === "Lançado" && entry.card_id) {
+      const docId = await syncToAzureDevOps(
+        entry.card_id,
+        entry.start_time,
+        entry.end_time,
+        entry.activity,
+        entry.description,
+        entry.date,
+      );
+      if (docId) {
+        setEntries((prev) =>
+          prev.map((e) =>
+            e.id === entry.id
+              ? { ...e, status: "Lançado", ado_doc_id: docId }
+              : e,
+          ),
+        );
+        await supabase
+          .from("time_entries")
+          .update({ status: "Lançado", ado_doc_id: docId })
+          .eq("id", entry.id);
+        showToast("Time Log gravado na TechsBCN com sucesso!", "success");
+      }
+      return;
+    }
+
+    if (newStatus === "Pendente") {
+      if (entry.ado_doc_id) {
+        await deleteFromAzureDevOps(entry.ado_doc_id);
+      }
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === entry.id
+            ? { ...e, status: "Pendente", ado_doc_id: undefined }
+            : e,
+        ),
+      );
+      await supabase
+        .from("time_entries")
+        .update({ status: "Pendente", ado_doc_id: null })
+        .eq("id", entry.id);
+      showToast("Marcado como pendente e removido da TechsBCN.", "info");
     }
   };
 
-  const confirmDelete = (id: string) => {
+  const confirmDelete = (entry: TimeEntry) => {
     setConfirmDialog({
       title: "Excluir Lançamento",
       message:
-        "Tem certeza que deseja apagar este registro? Essa ação não pode ser desfeita.",
+        "Tem certeza? Isso apagará o registro tanto daqui quanto lá na TechsBCN do Azure.",
       onConfirm: async () => {
-        setEntries((prev) => prev.filter((e) => e.id !== id));
+        setEntries((prev) => prev.filter((e) => e.id !== entry.id));
         setConfirmDialog(null);
+
+        if (entry.ado_doc_id) {
+          await deleteFromAzureDevOps(entry.ado_doc_id);
+        }
+
         const { error } = await supabase
           .from("time_entries")
           .delete()
-          .eq("id", id);
+          .eq("id", entry.id);
         if (error) {
-          showToast("Erro ao excluir o registro.", "error");
+          showToast("Erro ao excluir.", "error");
           fetchUserData();
-        } else showToast("Registro excluído com sucesso.", "success");
+        } else
+          showToast("Excluído com sucesso de ambos os sistemas.", "success");
       },
     });
   };
@@ -387,6 +507,7 @@ export default function Page() {
       .update({
         date: editingEntry.date,
         card_type: editingEntry.card_type,
+        activity: editingEntry.activity,
         start_time: editingEntry.start_time,
         end_time: editingEntry.end_time,
         card_id: editingEntry.card_id,
@@ -410,10 +531,32 @@ export default function Page() {
     e.preventDefault();
     if (!user) return;
     setLoadingData(true);
+
+    let docId = null;
+    const isLançado = form.status === "Lançado";
+
+    if (isLançado && form.card_id) {
+      docId = await syncToAzureDevOps(
+        form.card_id,
+        form.start_time,
+        form.end_time,
+        form.activity,
+        form.description,
+        form.date,
+      );
+    }
+
     const { data, error } = await supabase
       .from("time_entries")
-      .insert([{ ...form, user_id: user.id }])
+      .insert([
+        {
+          ...form,
+          user_id: user.id,
+          ado_doc_id: docId,
+        },
+      ])
       .select();
+
     if (!error && data) {
       setEntries([data[0], ...entries]);
       setForm({
@@ -423,21 +566,24 @@ export default function Page() {
         card_link: "",
         status: "Pendente",
       });
-      showToast("Atividade registrada com sucesso!", "success");
-    } else showToast("Erro ao registrar a atividade.", "error");
+      showToast(
+        isLançado
+          ? "Time Log salvo na TechsBCN e localmente!"
+          : "Atividade registrada no banco local!",
+        "success",
+      );
+    } else {
+      showToast("Erro ao registrar a atividade.", "error");
+    }
     setLoadingData(false);
   };
 
-  // --- CÁLCULO INTELIGENTE DE DIAS ÚTEIS E SEXTAS-FEIRAS ---
-
-  // Função que verifica se uma data (YYYY-MM-DD) cai na sexta-feira
   const isDateFriday = (dateStr: string) => {
     if (!dateStr) return false;
     const [y, m, d] = dateStr.split("-").map(Number);
     return new Date(y, m - 1, d, 12, 0, 0).getDay() === 5;
   };
 
-  // Função para contar quantos dias normais (Seg-Qui) e Sextas-Feiras tem no mês
   const getBusinessDaysInMonth = (yearMonth: string) => {
     if (!yearMonth) return { regular: 0, fridays: 0 };
     const [y, m] = yearMonth.split("-").map(Number);
@@ -445,16 +591,14 @@ export default function Page() {
     let regular = 0;
     let fridays = 0;
     for (let i = 1; i <= daysInMonth; i++) {
-      const date = new Date(y, m - 1, i, 12, 0, 0); // Meio-dia evita bug de fuso
+      const date = new Date(y, m - 1, i, 12, 0, 0);
       const day = date.getDay();
-      if (day >= 1 && day <= 4)
-        regular++; // Segunda a Quinta
-      else if (day === 5) fridays++; // Sexta-feira
+      if (day >= 1 && day <= 4) regular++;
+      else if (day === 5) fridays++;
     }
     return { regular, fridays };
   };
 
-  // Metas Diárias
   const regularGrossMinutes = getEntryDurationMinutes(
     settings.work_start_time,
     settings.work_end_time,
@@ -463,10 +607,9 @@ export default function Page() {
     0,
     regularGrossMinutes - settings.lunch_break_minutes,
   );
-
   const fridayGrossMinutes = getEntryDurationMinutes(
     settings.work_start_time,
-    settings.friday_work_end_time, // <-- Agora usa a variável customizada
+    settings.friday_work_end_time,
   );
   const fridayNetMinutes = Math.max(
     0,
@@ -475,17 +618,13 @@ export default function Page() {
 
   const { regular: regularDaysThisMonth, fridays: fridaysThisMonth } =
     getBusinessDaysInMonth(selectedMonth);
-
-  // Calcula a META MENSAL DINAMICAMENTE
   const calculatedMonthlyGoal =
     regularDaysThisMonth * (regularNetMinutes / 60) +
     fridaysThisMonth * (fridayNetMinutes / 60);
 
-  // Filtra registros do Mês Atual
   const filteredEntries = entries.filter((e) =>
     e.date.startsWith(selectedMonth),
   );
-
   const totalLoggedMinutes = filteredEntries
     .filter((e) => e.status === "Lançado")
     .reduce(
@@ -495,7 +634,6 @@ export default function Page() {
     );
   const totalLoggedHours = (totalLoggedMinutes / 60).toFixed(2);
 
-  // Cálculos de "Hoje"
   const todayStr = new Date().toISOString().split("T")[0];
   const todayNetTarget = isDateFriday(todayStr)
     ? fridayNetMinutes
@@ -593,6 +731,14 @@ export default function Page() {
           </div>
         </div>
       )}
+      {isSyncingAdo && (
+        <div className="fixed bottom-6 right-6 bg-indigo-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-50 animate-in fade-in slide-in-from-bottom-5">
+          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          <span className="text-sm font-medium">
+            Sincronizando com a TechsBCN...
+          </span>
+        </div>
+      )}
     </>
   );
 
@@ -612,7 +758,6 @@ export default function Page() {
               Gerencie seus apontamentos de forma simples
             </p>
           </div>
-
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
             <form onSubmit={handleAuth} className="space-y-4">
               <div>
@@ -687,8 +832,11 @@ export default function Page() {
               <BarChart3 className="w-5 h-5 text-indigo-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">
-                DevOps Hours
+              <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                DevOps Hours{" "}
+                <span className="text-xs font-normal bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" /> Seguro (Individual)
+                </span>
               </h1>
               <p className="text-xs text-slate-400 font-medium">{user.email}</p>
             </div>
@@ -721,7 +869,7 @@ export default function Page() {
 
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="p-2.5 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg transition-colors"
+              className={`p-2.5 text-slate-400 hover:text-white bg-slate-900 border ${showSettings ? "border-indigo-500 text-indigo-400" : "border-slate-800"} rounded-lg transition-colors`}
               title="Configurações"
             >
               <Settings className="w-4 h-4" />
@@ -738,98 +886,176 @@ export default function Page() {
         </header>
 
         {showSettings && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg animate-in slide-in-from-top-4 fade-in">
-            <div className="flex items-center justify-between mb-5 border-b border-slate-800/60 pb-4">
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <Settings className="w-4 h-4 text-slate-400" /> Ajustes da
-                Jornada
-              </h2>
-              <div className="flex gap-2">
-                <span className="text-xs font-medium bg-slate-950 border border-slate-800 text-slate-400 px-3 py-1 rounded-full">
-                  Seg a Qui:{" "}
-                  <strong className="text-white">
-                    {Math.floor(regularNetMinutes / 60)}h{" "}
-                    {regularNetMinutes % 60}m
-                  </strong>
-                </span>
-                <span className="text-xs font-medium bg-indigo-950/30 border border-indigo-900/50 text-indigo-300 px-3 py-1 rounded-full">
-                  Sexta:{" "}
-                  <strong className="text-indigo-200">
-                    {Math.floor(fridayNetMinutes / 60)}h {fridayNetMinutes % 60}
-                    m
-                  </strong>
-                </span>
-              </div>
-            </div>
-            <form
-              onSubmit={handleSaveSettings}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
-            >
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl animate-in slide-in-from-top-4 fade-in space-y-6">
+            <form onSubmit={handleSaveSettings} className="space-y-6">
               <div>
-                <label className="text-xs font-medium text-slate-400 block mb-2">
-                  Início do Expediente
-                </label>
-                <input
-                  type="time"
-                  value={settings.work_start_time}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      work_start_time: e.target.value,
-                    })
-                  }
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
-                />
+                <div className="flex items-center justify-between mb-4 border-b border-slate-800/60 pb-3">
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-slate-400" /> 1. Jornada
+                    Padrão
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-2">
+                      Início do Expediente
+                    </label>
+                    <input
+                      type="time"
+                      value={settings.work_start_time}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          work_start_time: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-2">
+                      Fim (Segunda-Quinta)
+                    </label>
+                    <input
+                      type="time"
+                      value={settings.work_end_time}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          work_end_time: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-2">
+                      Fim (Sexta-feira)
+                    </label>
+                    <input
+                      type="time"
+                      value={settings.friday_work_end_time}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          friday_work_end_time: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-2">
+                      Pausa Almoço (min)
+                    </label>
+                    <input
+                      type="number"
+                      value={settings.lunch_break_minutes}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          lunch_break_minutes: Number(e.target.value),
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                    />
+                  </div>
+                </div>
               </div>
+
               <div>
-                <label className="text-xs font-medium text-slate-400 block mb-2">
-                  Fim do Expediente (Seg-Qui)
-                </label>
-                <input
-                  type="time"
-                  value={settings.work_end_time}
-                  onChange={(e) =>
-                    setSettings({ ...settings, work_end_time: e.target.value })
-                  }
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
-                />
+                <div className="flex items-center justify-between mb-4 border-b border-slate-800/60 pb-3">
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    <CloudCog className="w-4 h-4 text-emerald-400" /> 2. Azure
+                    DevOps & TechsBCN (Suas Credenciais Pessoais)
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 bg-slate-950 p-5 rounded-xl border border-slate-800/50">
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-2">
+                      Organização
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.ado_organization}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          ado_organization: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-2">
+                      Projeto
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.ado_project}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          ado_project: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-2">
+                      Seu Token (PAT)
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Cole seu PAT aqui"
+                      value={settings.ado_pat}
+                      onChange={(e) =>
+                        setSettings({ ...settings, ado_pat: e.target.value })
+                      }
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-400 block mb-2">
+                      Seu User ID no Azure
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.ado_user_id}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          ado_user_id: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors text-xs font-mono"
+                    />
+                  </div>
+                  <div className="lg:col-span-2">
+                    <label className="text-xs font-medium text-slate-400 block mb-2">
+                      Seu Nome no Azure
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.ado_user_name}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          ado_user_name: e.target.value,
+                        })
+                      }
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-medium text-slate-400 block mb-2">
-                  Fim do Expediente (Sexta)
-                </label>
-                <input
-                  type="time"
-                  value={settings.friday_work_end_time}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      friday_work_end_time: e.target.value,
-                    })
-                  }
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate-400 block mb-2">
-                  Pausa Almoço (min)
-                </label>
-                <input
-                  type="number"
-                  value={settings.lunch_break_minutes}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      lunch_break_minutes: Number(e.target.value),
-                    })
-                  }
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
-                />
-              </div>
-              <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+
+              <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  className="bg-white hover:bg-slate-200 text-slate-900 text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+                  className="bg-white hover:bg-slate-200 text-slate-900 text-sm font-semibold px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" /> Salvar Configurações
                 </button>
@@ -897,15 +1123,21 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-sm font-bold text-white mb-5 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-slate-400" /> Registro Manual
-          </h2>
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 relative overflow-hidden">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <Plus className="w-4 h-4 text-slate-400" /> Registro de Time Log
+            </h2>
+            <span className="text-[10px] font-medium text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+              <ShieldCheck className="w-3 h-3" /> TechsBCN via Edge Function
+            </span>
+          </div>
+
           <form
             onSubmit={handleSubmitEntry}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 relative z-10"
           >
-            <div>
+            <div className="lg:col-span-1">
               <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
                 Data
               </label>
@@ -916,9 +1148,44 @@ export default function Page() {
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
               />
             </div>
-            <div>
+            <div className="lg:col-span-2 xl:col-span-1">
               <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                Tipo
+                Período (Início/Fim)
+              </label>
+              <div className="flex gap-1.5">
+                <input
+                  type="time"
+                  value={form.start_time}
+                  onChange={(e) =>
+                    setForm({ ...form, start_time: e.target.value })
+                  }
+                  className="w-1/2 bg-slate-950 border border-slate-800 rounded-lg px-1 sm:px-2 py-2.5 text-sm text-white text-center focus:border-indigo-500 outline-none transition-colors"
+                />
+                <input
+                  type="time"
+                  value={form.end_time}
+                  onChange={(e) =>
+                    setForm({ ...form, end_time: e.target.value })
+                  }
+                  className="w-1/2 bg-slate-950 border border-slate-800 rounded-lg px-1 sm:px-2 py-2.5 text-sm text-white text-center focus:border-indigo-500 outline-none transition-colors"
+                />
+              </div>
+            </div>
+            <div className="lg:col-span-1">
+              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
+                DevOps ID
+              </label>
+              <input
+                type="text"
+                placeholder="12345"
+                value={form.card_id}
+                onChange={(e) => setForm({ ...form, card_id: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
+              />
+            </div>
+            <div className="lg:col-span-2 xl:col-span-1">
+              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
+                Tipo do Card
               </label>
               <select
                 value={form.card_type}
@@ -934,42 +1201,60 @@ export default function Page() {
                 <option value="QA Plan">QA Plan</option>
               </select>
             </div>
-            <div>
-              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                Período
+            <div className="lg:col-span-2 xl:col-span-3">
+              <label className="text-[11px] font-medium text-amber-400 block mb-1.5">
+                Activity (Categoria)
               </label>
-              <div className="flex gap-1.5">
-                <input
-                  type="time"
-                  value={form.start_time}
-                  onChange={(e) =>
-                    setForm({ ...form, start_time: e.target.value })
-                  }
-                  className="w-1/2 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white text-center focus:border-indigo-500 outline-none transition-colors"
-                />
-                <input
-                  type="time"
-                  value={form.end_time}
-                  onChange={(e) =>
-                    setForm({ ...form, end_time: e.target.value })
-                  }
-                  className="w-1/2 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white text-center focus:border-indigo-500 outline-none transition-colors"
-                />
-              </div>
+              <select
+                value={form.activity}
+                onChange={(e) => setForm({ ...form, activity: e.target.value })}
+                className="w-full bg-amber-950/20 border border-amber-900/40 rounded-lg px-3 py-2.5 text-sm text-white focus:border-amber-500 outline-none transition-colors"
+              >
+                <option value="Daily Scrum / Reunião diaria">
+                  Daily Scrum / Reunião diaria
+                </option>
+                <option value="Execução de Testes e Regressão">
+                  Execução de Testes e Regressão
+                </option>
+                <option value="Análise e Criação de Cenários de Testes">
+                  Análise e Criação de Cenários de Testes
+                </option>
+                <option value="Planning / Refinamento Técnico">
+                  Planning / Refinamento Técnico
+                </option>
+                <option value="Outros">Outros</option>
+              </select>
             </div>
-            <div>
+
+            <div className="lg:col-span-2 xl:col-span-3">
               <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                DevOps ID
+                Notes (Descrição da Atividade)
               </label>
               <input
                 type="text"
-                placeholder="Ex: 12345"
-                value={form.card_id}
-                onChange={(e) => setForm({ ...form, card_id: e.target.value })}
+                placeholder="Ex: Escrevi cenários..."
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
               />
             </div>
-            <div>
+            <div className="lg:col-span-2 xl:col-span-2">
+              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
+                Link URL (Opcional)
+              </label>
+              <input
+                type="url"
+                placeholder="https://..."
+                value={form.card_link}
+                onChange={(e) =>
+                  setForm({ ...form, card_link: e.target.value })
+                }
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
+              />
+            </div>
+            <div className="lg:col-span-2 xl:col-span-1">
               <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
                 Status Inicial
               </label>
@@ -984,116 +1269,16 @@ export default function Page() {
                 <option value="Lançado">Lançado</option>
               </select>
             </div>
-            <div className="lg:col-span-2">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                O que foi feito?
-              </label>
-              <input
-                type="text"
-                placeholder="Resumo..."
-                value={form.description}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
-              />
-            </div>
-            <div className="lg:col-span-5">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                Link URL (Opcional)
-              </label>
-              <input
-                type="url"
-                placeholder="https://..."
-                value={form.card_link}
-                onChange={(e) =>
-                  setForm({ ...form, card_link: e.target.value })
-                }
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
-              />
-            </div>
-            <div className="lg:col-span-2 flex items-end">
+            <div className="lg:col-span-2 xl:col-span-2 flex items-end">
               <button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg text-sm py-2.5 transition-colors"
+                disabled={isSyncingAdo}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg text-sm py-2.5 transition-colors disabled:opacity-50"
               >
-                Lançar Horas
+                Salvar Time Log
               </button>
             </div>
           </form>
-        </section>
-
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-slate-400" /> Rendimento por
-              Dia ({selectedMonth})
-            </h2>
-            <div className="flex gap-2">
-              <span className="text-[10px] font-medium text-slate-500 bg-slate-950 px-2 py-1 rounded">
-                Alvo: {(regularNetMinutes / 60).toFixed(2)}h
-              </span>
-              <span className="text-[10px] font-medium text-indigo-400 bg-indigo-950/30 px-2 py-1 rounded">
-                Sexta: {(fridayNetMinutes / 60).toFixed(2)}h
-              </span>
-            </div>
-          </div>
-
-          {dailySortedDates.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-4">
-              Nenhum histórico gerado para o mês selecionado.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {dailySortedDates.map((dateKey) => {
-                const dayData = dailySummary[dateKey];
-                const isFriday = isDateFriday(dateKey);
-                const targetMinForDay = isFriday
-                  ? fridayNetMinutes
-                  : regularNetMinutes;
-
-                const loggedHours = (dayData.loggedMin / 60).toFixed(2);
-                const progressPct = Math.min(
-                  100,
-                  Math.round((dayData.loggedMin / targetMinForDay) * 100),
-                );
-                const isComplete = progressPct >= 100;
-
-                return (
-                  <div
-                    key={dateKey}
-                    className="bg-slate-950 border border-slate-800/50 rounded-xl p-3.5 flex flex-col gap-2.5"
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium text-slate-400">
-                        {dateKey}{" "}
-                        {isFriday && (
-                          <span className="text-indigo-400 ml-1 text-[10px]">
-                            (Sex)
-                          </span>
-                        )}
-                      </span>
-                      <span
-                        className={`text-xs font-bold font-mono ${isComplete ? "text-emerald-400" : "text-slate-300"}`}
-                      >
-                        {loggedHours}h
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${isComplete ? "bg-emerald-400" : "bg-indigo-500"}`}
-                        style={{ width: `${progressPct}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] text-slate-500">
-                      <span>{dayData.count} regs</span>
-                      <span>{progressPct}%</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </section>
 
         <section className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
@@ -1102,11 +1287,11 @@ export default function Page() {
               <thead className="bg-slate-950/50 text-slate-500 text-xs font-medium uppercase border-b border-slate-800/80">
                 <tr>
                   <th className="px-5 py-4 whitespace-nowrap">Data</th>
-                  <th className="px-5 py-4 whitespace-nowrap">Tipo</th>
-                  <th className="px-5 py-4 whitespace-nowrap">Horário</th>
-                  <th className="px-5 py-4 whitespace-nowrap">Total</th>
-                  <th className="px-5 py-4 whitespace-nowrap">DevOps ID</th>
-                  <th className="px-5 py-4 min-w-[280px]">Atividade</th>
+                  <th className="px-5 py-4 whitespace-nowrap">ID / Tipo</th>
+                  <th className="px-5 py-4 whitespace-nowrap">
+                    Horário (Total)
+                  </th>
+                  <th className="px-5 py-4 min-w-[250px]">Activity & Notes</th>
                   <th className="px-5 py-4 whitespace-nowrap">Status</th>
                   <th className="px-5 py-4 text-right whitespace-nowrap">
                     Opções
@@ -1116,7 +1301,7 @@ export default function Page() {
               <tbody className="divide-y divide-slate-800/50">
                 {filteredEntries.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-slate-500">
+                    <td colSpan={6} className="p-8 text-center text-slate-500">
                       Nenhum apontamento cadastrado neste mês.
                     </td>
                   </tr>
@@ -1144,34 +1329,45 @@ export default function Page() {
                           )}
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap">
-                          <span className="px-2 py-1 rounded text-[10px] font-medium bg-slate-800 text-slate-300">
-                            {entry.card_type}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-slate-400 font-mono text-xs whitespace-nowrap">
-                          {entry.start_time} - {entry.end_time}
-                        </td>
-                        <td className="px-5 py-3 font-mono text-slate-200 text-xs font-medium whitespace-nowrap">
-                          {durFormatted}
-                        </td>
-                        <td className="px-5 py-3 font-mono text-xs whitespace-nowrap">
-                          {entry.card_link ? (
-                            <a
-                              href={entry.card_link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-indigo-400 hover:underline"
-                            >
-                              {entry.card_id || "Link"}
-                            </a>
-                          ) : (
-                            <span className="text-slate-500">
-                              {entry.card_id || "-"}
+                          <div className="flex flex-col gap-1">
+                            <span className="font-mono text-xs text-white">
+                              {entry.card_link ? (
+                                <a
+                                  href={entry.card_link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-indigo-400 hover:underline"
+                                >
+                                  {entry.card_id || "Link"}
+                                </a>
+                              ) : (
+                                entry.card_id || "-"
+                              )}
                             </span>
-                          )}
+                            <span className="px-2 py-0.5 w-fit rounded text-[9px] font-medium bg-slate-800 text-slate-300">
+                              {entry.card_type}
+                            </span>
+                          </div>
                         </td>
-                        <td className="px-5 py-3 text-slate-400 text-xs truncate max-w-[200px]">
-                          {entry.description}
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="text-slate-400 font-mono text-xs">
+                              {entry.start_time} - {entry.end_time}
+                            </span>
+                            <span className="font-mono text-slate-200 text-xs font-bold">
+                              {durFormatted}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-medium text-amber-500/90">
+                              {entry.activity}
+                            </span>
+                            <span className="text-slate-300 text-xs truncate max-w-[300px]">
+                              {entry.description || "-"}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap">
                           <span
@@ -1183,9 +1379,8 @@ export default function Page() {
                         <td className="px-5 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
                             <button
-                              onClick={() =>
-                                toggleStatus(entry.id, entry.status)
-                              }
+                              onClick={() => toggleStatus(entry)}
+                              disabled={isSyncingAdo}
                               className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${isLançado ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white"}`}
                             >
                               {isLançado ? "Tornar Pendente" : "Marcar Lançado"}
@@ -1197,7 +1392,7 @@ export default function Page() {
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => confirmDelete(entry.id)}
+                              onClick={() => confirmDelete(entry)}
                               className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1265,6 +1460,37 @@ export default function Page() {
                     </select>
                   </div>
                 </div>
+
+                <div>
+                  <label className="text-xs font-medium text-amber-400 block mb-1.5">
+                    Activity (Categoria)
+                  </label>
+                  <select
+                    value={editingEntry.activity}
+                    onChange={(e) =>
+                      setEditingEntry({
+                        ...editingEntry,
+                        activity: e.target.value,
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="Daily Scrum / Reunião diaria">
+                      Daily Scrum / Reunião diaria
+                    </option>
+                    <option value="Execução de Testes e Regressão">
+                      Execução de Testes e Regressão
+                    </option>
+                    <option value="Análise e Criação de Cenários de Testes">
+                      Análise e Criação de Cenários de Testes
+                    </option>
+                    <option value="Planning / Refinamento Técnico">
+                      Planning / Refinamento Técnico
+                    </option>
+                    <option value="Outros">Outros</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="text-xs font-medium text-slate-400 block mb-1.5">
@@ -1353,7 +1579,7 @@ export default function Page() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-400 block mb-1.5">
-                    Descrição
+                    Notes
                   </label>
                   <input
                     type="text"
