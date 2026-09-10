@@ -22,6 +22,10 @@ import {
   Filter,
   CloudCog,
   ShieldCheck,
+  CalendarDays,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -80,6 +84,11 @@ export default function Page() {
   const [uploadingExcel, setUploadingExcel] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [isSyncingAdo, setIsSyncingAdo] = useState(false);
+
+  // Estado para controlar quais dias estão expandidos (por padrão, o dia atual ou vazio)
+  const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>(
+    {},
+  );
 
   const [selectedMonth, setSelectedMonth] = useState(() =>
     new Date().toISOString().substring(0, 7),
@@ -168,11 +177,22 @@ export default function Page() {
         .eq("user_id", user?.id)
         .order("date", { ascending: false });
       setEntries(entriesData || []);
+
+      // Deixa o dia atual expandido por padrão
+      const today = new Date().toISOString().split("T")[0];
+      setCollapsedDays({ [today]: true });
     } catch (err) {
       showToast("Erro ao carregar os dados.", "error");
     } finally {
       setLoadingData(false);
     }
+  };
+
+  const toggleDayCollapse = (dateStr: string) => {
+    setCollapsedDays((prev) => ({
+      ...prev,
+      [dateStr]: !prev[dateStr],
+    }));
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -566,6 +586,8 @@ export default function Page() {
         card_link: "",
         status: "Pendente",
       });
+      // Mantém o dia do novo registro expandido para facilitar visualização
+      setCollapsedDays((prev) => ({ ...prev, [form.date]: true }));
       showToast(
         isLançado
           ? "Time Log salvo na TechsBCN e localmente!"
@@ -1281,131 +1303,237 @@ export default function Page() {
           </form>
         </section>
 
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-950/50 text-slate-500 text-xs font-medium uppercase border-b border-slate-800/80">
-                <tr>
-                  <th className="px-5 py-4 whitespace-nowrap">Data</th>
-                  <th className="px-5 py-4 whitespace-nowrap">ID / Tipo</th>
-                  <th className="px-5 py-4 whitespace-nowrap">
-                    Horário (Total)
-                  </th>
-                  <th className="px-5 py-4 min-w-[250px]">Activity & Notes</th>
-                  <th className="px-5 py-4 whitespace-nowrap">Status</th>
-                  <th className="px-5 py-4 text-right whitespace-nowrap">
-                    Opções
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/50">
-                {filteredEntries.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-500">
-                      Nenhum apontamento cadastrado neste mês.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredEntries.map((entry) => {
-                    const durMin = getEntryDurationMinutes(
-                      entry.start_time,
-                      entry.end_time,
-                    );
-                    const durFormatted = `${Math.floor(durMin / 60)}h ${durMin % 60}m`;
-                    const isLançado = entry.status === "Lançado";
-                    const isFriday = isDateFriday(entry.date);
-
-                    return (
-                      <tr
-                        key={entry.id}
-                        className="hover:bg-slate-800/30 transition-colors group"
-                      >
-                        <td className="px-5 py-3 text-slate-400 font-mono text-xs whitespace-nowrap">
-                          {entry.date}{" "}
-                          {isFriday && (
-                            <span className="text-indigo-400 ml-1 text-[10px] bg-indigo-950/30 px-1 rounded">
-                              Sex
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3 whitespace-nowrap">
-                          <div className="flex flex-col gap-1">
-                            <span className="font-mono text-xs text-white">
-                              {entry.card_link ? (
-                                <a
-                                  href={entry.card_link}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-indigo-400 hover:underline"
-                                >
-                                  {entry.card_id || "Link"}
-                                </a>
-                              ) : (
-                                entry.card_id || "-"
-                              )}
-                            </span>
-                            <span className="px-2 py-0.5 w-fit rounded text-[9px] font-medium bg-slate-800 text-slate-300">
-                              {entry.card_type}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <span className="text-slate-400 font-mono text-xs">
-                              {entry.start_time} - {entry.end_time}
-                            </span>
-                            <span className="font-mono text-slate-200 text-xs font-bold">
-                              {durFormatted}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-medium text-amber-500/90">
-                              {entry.activity}
-                            </span>
-                            <span className="text-slate-300 text-xs truncate max-w-[300px]">
-                              {entry.description || "-"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 rounded text-[10px] font-medium flex items-center gap-1 w-fit ${isLançado ? "text-emerald-400 bg-emerald-400/10" : "text-amber-400 bg-amber-400/10"}`}
-                          >
-                            {entry.status}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => toggleStatus(entry)}
-                              disabled={isSyncingAdo}
-                              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${isLançado ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white"}`}
-                            >
-                              {isLançado ? "Tornar Pendente" : "Marcar Lançado"}
-                            </button>
-                            <button
-                              onClick={() => setEditingEntry(entry)}
-                              className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => confirmDelete(entry)}
-                              className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+        {/* SEÇÃO DE ACOMPANHAMENTO DIÁRIO COLAPSÁVEL */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-indigo-400" />{" "}
+              Acompanhamento Diário por Data
+            </h2>
+            <span className="text-xs text-slate-400">
+              {dailySortedDates.length} dias registrados no mês (Clique no card
+              para expandir)
+            </span>
           </div>
+
+          {dailySortedDates.length === 0 ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-500">
+              Nenhum apontamento cadastrado neste mês.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {dailySortedDates.map((dateStr) => {
+                const dayEntries = filteredEntries.filter(
+                  (e) => e.date === dateStr,
+                );
+                const isFriday = isDateFriday(dateStr);
+                const dayTargetMin = isFriday
+                  ? fridayNetMinutes
+                  : regularNetMinutes;
+                const totalDayMin = dayEntries.reduce(
+                  (acc, curr) =>
+                    acc +
+                    getEntryDurationMinutes(curr.start_time, curr.end_time),
+                  0,
+                );
+                const loggedDayMin = dayEntries
+                  .filter((e) => e.status === "Lançado")
+                  .reduce(
+                    (acc, curr) =>
+                      acc +
+                      getEntryDurationMinutes(curr.start_time, curr.end_time),
+                    0,
+                  );
+                const progressPercent = Math.min(
+                  100,
+                  Math.round((totalDayMin / dayTargetMin) * 100),
+                );
+                const isComplete = totalDayMin >= dayTargetMin;
+                const isExpanded = !!collapsedDays[dateStr];
+
+                return (
+                  <div
+                    key={dateStr}
+                    className="bg-slate-900 border border-slate-800 rounded-2xl transition-all shadow-lg overflow-hidden"
+                  >
+                    {/* Cabeçalho do Dia (Clicável para Colapsar/Expandir) */}
+                    <div
+                      onClick={() => toggleDayCollapse(dateStr)}
+                      className="p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 cursor-pointer hover:bg-slate-800/40 transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono font-bold text-sm shrink-0 ${isComplete ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-indigo-600/10 text-indigo-400 border border-indigo-500/20"}`}
+                        >
+                          {dateStr.split("-")[2]}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-white font-semibold text-sm">
+                              {new Date(
+                                dateStr + "T12:00:00",
+                              ).toLocaleDateString("pt-BR", {
+                                weekday: "long",
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              })}
+                            </h3>
+                            {isFriday && (
+                              <span className="text-[10px] bg-indigo-950 text-indigo-400 border border-indigo-800/50 px-2 py-0.5 rounded-full">
+                                Sexta-feira
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-400">
+                            {dayEntries.length}{" "}
+                            {dayEntries.length === 1 ? "registro" : "registros"}{" "}
+                            • Lançados: {(loggedDayMin / 60).toFixed(2)}h
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progresso e Botão de Colapso */}
+                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                        <div className="text-right">
+                          <div className="text-xs font-mono font-bold text-white">
+                            {(totalDayMin / 60).toFixed(2)}h{" "}
+                            <span className="text-slate-500 font-normal">
+                              / {(dayTargetMin / 60).toFixed(2)}h
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400">
+                            {progressPercent}% da meta
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isComplete ? (
+                            <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full border-2 border-slate-700 shrink-0 flex items-center justify-center">
+                              <div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div>
+                            </div>
+                          )}
+                          <div className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Barra de Progresso Fina */}
+                    <div className="w-full bg-slate-950 h-1 rounded-none overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 ${isComplete ? "bg-emerald-500" : "bg-indigo-500"}`}
+                        style={{ width: `${progressPercent}%` }}
+                      ></div>
+                    </div>
+
+                    {/* Conteúdo Expansível (Cards dos Registros) */}
+                    {isExpanded && (
+                      <div className="p-4 sm:p-5 bg-slate-950/40 border-t border-slate-800/60 animate-in fade-in duration-200 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {dayEntries.map((entry) => {
+                            const durMin = getEntryDurationMinutes(
+                              entry.start_time,
+                              entry.end_time,
+                            );
+                            const durFormatted = `${Math.floor(durMin / 60)}h ${durMin % 60}m`;
+                            const isLançado = entry.status === "Lançado";
+
+                            return (
+                              <div
+                                key={entry.id}
+                                className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between gap-3 hover:border-slate-700 transition-colors shadow-sm"
+                              >
+                                <div className="space-y-1.5">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <span className="font-mono text-xs font-medium text-white">
+                                      {entry.card_link ? (
+                                        <a
+                                          href={entry.card_link}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-indigo-400 hover:underline"
+                                        >
+                                          #{entry.card_id || "Link"}
+                                        </a>
+                                      ) : entry.card_id ? (
+                                        `#${entry.card_id}`
+                                      ) : (
+                                        "Sem ID"
+                                      )}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-slate-800 text-slate-300">
+                                      {entry.card_type}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-amber-400 font-medium line-clamp-1">
+                                    {entry.activity}
+                                  </p>
+                                  <p className="text-xs text-slate-300 line-clamp-2">
+                                    {entry.description || "Sem descrição"}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+                                  <div className="flex items-center gap-2 font-mono text-slate-400">
+                                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>
+                                      {entry.start_time} - {entry.end_time}
+                                    </span>
+                                    <span className="text-white font-bold">
+                                      ({durFormatted})
+                                    </span>
+                                  </div>
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[9px] font-medium ${isLançado ? "text-emerald-400 bg-emerald-400/10" : "text-amber-400 bg-amber-400/10"}`}
+                                  >
+                                    {entry.status}
+                                  </span>
+                                </div>
+
+                                {/* Botões rápidos do card */}
+                                <div className="flex items-center justify-end gap-1 pt-1 border-t border-slate-800/50">
+                                  <button
+                                    onClick={() => toggleStatus(entry)}
+                                    disabled={isSyncingAdo}
+                                    className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${isLançado ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white"}`}
+                                  >
+                                    {isLançado
+                                      ? "Tornar Pendente"
+                                      : "Marcar Lançado"}
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingEntry(entry)}
+                                    className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors"
+                                    title="Editar"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => confirmDelete(entry)}
+                                    className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
+                                    title="Excluir"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {editingEntry && (
