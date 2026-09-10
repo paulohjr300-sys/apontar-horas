@@ -98,6 +98,8 @@ export default function Page() {
     new Date().toISOString().substring(0, 7),
   );
 
+  const [filterDate, setFilterDate] = useState("");
+
   const [toasts, setToasts] = useState<ToastType[]>([]);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogType>(null);
 
@@ -525,6 +527,30 @@ export default function Page() {
     e.preventDefault();
     if (!editingEntry) return;
     setLoadingData(true);
+
+    let newDocId = editingEntry.ado_doc_id || null;
+    const isLançado = editingEntry.status === "Lançado";
+
+    // Se estiver lançado, removemos o anterior do DevOps (caso exista) e criamos um novo atualizado
+    if (isLançado && editingEntry.card_id) {
+      if (editingEntry.ado_doc_id) {
+        await deleteFromAzureDevOps(editingEntry.ado_doc_id);
+        newDocId = null;
+      }
+      newDocId = await syncToAzureDevOps(
+        editingEntry.card_id,
+        editingEntry.start_time,
+        editingEntry.end_time,
+        editingEntry.activity,
+        editingEntry.description,
+        editingEntry.date,
+      );
+    } else if (!isLançado && editingEntry.ado_doc_id) {
+      // Se alterou para pendente, garante que apaga do DevOps
+      await deleteFromAzureDevOps(editingEntry.ado_doc_id);
+      newDocId = null;
+    }
+
     const { error } = await supabase
       .from("time_entries")
       .update({
@@ -537,16 +563,20 @@ export default function Page() {
         description: editingEntry.description,
         card_link: editingEntry.card_link,
         status: editingEntry.status,
+        ado_doc_id: newDocId,
       })
       .eq("id", editingEntry.id);
 
     if (!error) {
+      const updatedObj = { ...editingEntry, ado_doc_id: newDocId || undefined };
       setEntries((prev) =>
-        prev.map((e) => (e.id === editingEntry.id ? editingEntry : e)),
+        prev.map((e) => (e.id === editingEntry.id ? updatedObj : e)),
       );
       setEditingEntry(null);
-      showToast("Lançamento atualizado!", "success");
-    } else showToast("Erro ao atualizar o registro.", "error");
+      showToast("Lançamento atualizado e sincronizado!", "success");
+    } else {
+      showToast("Erro ao atualizar o registro.", "error");
+    }
     setLoadingData(false);
   };
 
@@ -646,9 +676,12 @@ export default function Page() {
     regularDaysThisMonth * (regularNetMinutes / 60) +
     fridaysThisMonth * (fridayNetMinutes / 60);
 
-  const filteredEntries = entries.filter((e) =>
-    e.date.startsWith(selectedMonth),
-  );
+  const filteredEntries = entries.filter((e) => {
+    const matchesMonth = e.date.startsWith(selectedMonth);
+    const matchesDate = filterDate ? e.date === filterDate : true;
+    return matchesMonth && matchesDate;
+  });
+
   const totalLoggedMinutes = filteredEntries
     .filter((e) => e.status === "Lançado")
     .reduce(
@@ -1093,19 +1126,43 @@ export default function Page() {
           </div>
         )}
 
-        {/* OVERVIEW SECTION & MONTH FILTER */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
+        {/* OVERVIEW SECTION & FILTERS */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2">
           <h2 className="text-base font-bold text-white tracking-tight">
             Indicadores de Desempenho
           </h2>
-          <div className="flex items-center gap-2.5 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 focus-within:border-indigo-500 transition-all shadow-sm">
-            <Filter className="w-4 h-4 text-indigo-400" />
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent text-sm font-medium text-white outline-none [color-scheme:dark]"
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Filtro por Data Específica */}
+            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 focus-within:border-indigo-500 transition-all shadow-sm">
+              <CalendarDays className="w-4 h-4 text-indigo-400" />
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="bg-transparent text-sm font-medium text-white outline-none [color-scheme:dark]"
+                title="Filtrar por dia específico"
+              />
+              {filterDate && (
+                <button
+                  onClick={() => setFilterDate("")}
+                  className="text-xs text-slate-400 hover:text-white ml-1 font-semibold"
+                  title="Limpar filtro de dia"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+
+            {/* Filtro por Mês */}
+            <div className="flex items-center gap-2.5 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 focus-within:border-indigo-500 transition-all shadow-sm">
+              <Filter className="w-4 h-4 text-indigo-400" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-transparent text-sm font-medium text-white outline-none [color-scheme:dark]"
+              />
+            </div>
           </div>
         </div>
 
@@ -1381,13 +1438,13 @@ export default function Page() {
               Acompanhamento Diário por Data
             </h2>
             <span className="text-xs font-medium text-slate-400">
-              {dailySortedDates.length} dias registrados no mês
+              {dailySortedDates.length} dias registrados
             </span>
           </div>
 
           {dailySortedDates.length === 0 ? (
             <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-12 text-center text-slate-500 font-medium">
-              Nenhum apontamento cadastrado neste mês.
+              Nenhum apontamento cadastrado para este filtro.
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3.5">
@@ -1395,6 +1452,11 @@ export default function Page() {
                 const dayEntries = filteredEntries.filter(
                   (e) => e.date === dateStr,
                 );
+
+                const sortedDayEntries = [...dayEntries].sort((a, b) =>
+                  b.end_time.localeCompare(a.end_time),
+                );
+
                 const isFriday = isDateFriday(dateStr);
                 const dayTargetMin = isFriday
                   ? fridayNetMinutes
@@ -1502,7 +1564,7 @@ export default function Page() {
                     {isExpanded && (
                       <div className="p-5 bg-slate-950/60 border-t border-slate-800/80 animate-in fade-in duration-200 space-y-3.5">
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                          {dayEntries.map((entry) => {
+                          {sortedDayEntries.map((entry) => {
                             const durMin = getEntryDurationMinutes(
                               entry.start_time,
                               entry.end_time,
@@ -1668,6 +1730,13 @@ export default function Page() {
                       >
                         QA Plan
                       </option>
+                        <option value="Daily" className="bg-slate-950 text-white">
+                        QA Test
+                      </option>
+                      
+                        <option value="Daily" className="bg-slate-950 text-white">
+                        QA Aprovado
+                      </option>
                     </select>
                   </div>
                 </div>
@@ -1809,7 +1878,7 @@ export default function Page() {
                           card_link: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm text-white outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-3 text-sm font-mono text-white outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
@@ -1841,7 +1910,8 @@ export default function Page() {
                   </button>
                   <button
                     type="submit"
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-indigo-600/25 transition-all"
+                    disabled={isSyncingAdo}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50"
                   >
                     Salvar Alterações
                   </button>
