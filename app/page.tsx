@@ -46,6 +46,7 @@ interface TimeEntry {
 interface UserSettings {
   work_start_time: string;
   work_end_time: string;
+  friday_work_end_time: string; // <-- Novo campo adicionado
   lunch_break_minutes: number;
 }
 
@@ -85,6 +86,7 @@ export default function Page() {
   const [settings, setSettings] = useState<UserSettings>({
     work_start_time: "09:00",
     work_end_time: "19:20",
+    friday_work_end_time: "18:20", // <-- Valor padrão para sexta
     lunch_break_minutes: 60,
   });
 
@@ -140,6 +142,7 @@ export default function Page() {
         setSettings({
           work_start_time: settingsData.work_start_time || "09:00",
           work_end_time: settingsData.work_end_time || "19:20",
+          friday_work_end_time: settingsData.friday_work_end_time || "18:20", // <-- Busca do banco
           lunch_break_minutes: settingsData.lunch_break_minutes ?? 60,
         });
       }
@@ -196,6 +199,7 @@ export default function Page() {
       user_id: user.id,
       work_start_time: settings.work_start_time,
       work_end_time: settings.work_end_time,
+      friday_work_end_time: settings.friday_work_end_time, // <-- Salva no banco
       lunch_break_minutes: settings.lunch_break_minutes,
       updated_at: new Date().toISOString(),
     });
@@ -462,7 +466,7 @@ export default function Page() {
 
   const fridayGrossMinutes = getEntryDurationMinutes(
     settings.work_start_time,
-    "18:20",
+    settings.friday_work_end_time, // <-- Agora usa a variável customizada
   );
   const fridayNetMinutes = Math.max(
     0,
@@ -759,7 +763,7 @@ export default function Page() {
             </div>
             <form
               onSubmit={handleSaveSettings}
-              className="grid grid-cols-1 sm:grid-cols-3 gap-5"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
             >
               <div>
                 <label className="text-xs font-medium text-slate-400 block mb-2">
@@ -792,6 +796,22 @@ export default function Page() {
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-400 block mb-2">
+                  Fim do Expediente (Sexta)
+                </label>
+                <input
+                  type="time"
+                  value={settings.friday_work_end_time}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      friday_work_end_time: e.target.value,
+                    })
+                  }
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-2">
                   Pausa Almoço (min)
                 </label>
                 <input
@@ -806,7 +826,7 @@ export default function Page() {
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
                 />
               </div>
-              <div className="sm:col-span-3 flex justify-end">
+              <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
                 <button
                   type="submit"
                   className="bg-white hover:bg-slate-200 text-slate-900 text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
