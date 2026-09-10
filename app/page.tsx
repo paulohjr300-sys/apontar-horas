@@ -26,6 +26,11 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
+  Hash,
+  Tag,
+  FileText,
+  Link as LinkIcon,
+  CheckSquare,
 } from "lucide-react";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -85,7 +90,6 @@ export default function Page() {
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [isSyncingAdo, setIsSyncingAdo] = useState(false);
 
-  // Estado para controlar quais dias estão expandidos (por padrão, o dia atual ou vazio)
   const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>(
     {},
   );
@@ -178,7 +182,6 @@ export default function Page() {
         .order("date", { ascending: false });
       setEntries(entriesData || []);
 
-      // Deixa o dia atual expandido por padrão
       const today = new Date().toISOString().split("T")[0];
       setCollapsedDays({ [today]: true });
     } catch (err) {
@@ -586,7 +589,6 @@ export default function Page() {
         card_link: "",
         status: "Pendente",
       });
-      // Mantém o dia do novo registro expandido para facilitar visualização
       setCollapsedDays((prev) => ({ ...prev, [form.date]: true }));
       showToast(
         isLançado
@@ -857,7 +859,8 @@ export default function Page() {
               <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
                 DevOps Hours{" "}
                 <span className="text-xs font-normal bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" /> Seguro (Individual)
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" /> Seguro
+                  (Individual)
                 </span>
               </h1>
               <p className="text-xs text-slate-400 font-medium">{user.email}</p>
@@ -894,7 +897,7 @@ export default function Page() {
               className={`p-2.5 text-slate-400 hover:text-white bg-slate-900 border ${showSettings ? "border-indigo-500 text-indigo-400" : "border-slate-800"} rounded-lg transition-colors`}
               title="Configurações"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-4 h-4 text-slate-400" />
             </button>
 
             <button
@@ -902,7 +905,7 @@ export default function Page() {
               className="p-2.5 text-slate-400 hover:text-rose-400 bg-slate-900 border border-slate-800 hover:border-rose-900/50 hover:bg-rose-500/10 rounded-lg transition-colors"
               title="Sair"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 text-slate-400" />
             </button>
           </div>
         </header>
@@ -1079,7 +1082,8 @@ export default function Page() {
                   type="submit"
                   className="bg-white hover:bg-slate-200 text-slate-900 text-sm font-semibold px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
                 >
-                  <Save className="w-4 h-4" /> Salvar Configurações
+                  <Save className="w-4 h-4 text-slate-900" /> Salvar
+                  Configurações
                 </button>
               </div>
             </form>
@@ -1145,13 +1149,15 @@ export default function Page() {
           </div>
         </section>
 
+        {/* REGISTRO DE TIME LOG COM ÍCONES NAS LABELS */}
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 relative overflow-hidden">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
               <Plus className="w-4 h-4 text-slate-400" /> Registro de Time Log
             </h2>
             <span className="text-[10px] font-medium text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-              <ShieldCheck className="w-3 h-3" /> TechsBCN via Edge Function
+              <ShieldCheck className="w-3 h-3 text-emerald-400" /> TechsBCN via
+              Edge Function
             </span>
           </div>
 
@@ -1159,9 +1165,10 @@ export default function Page() {
             onSubmit={handleSubmitEntry}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 relative z-10"
           >
+            {/* DATA */}
             <div className="lg:col-span-1">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                Data
+              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+                <CalendarDays className="w-3.5 h-3.5 text-indigo-400" /> Data
               </label>
               <input
                 type="date"
@@ -1170,11 +1177,14 @@ export default function Page() {
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500 outline-none transition-colors"
               />
             </div>
-            <div className="lg:col-span-2 xl:col-span-1">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                Período (Início/Fim)
+
+            {/* PERÍODO (INÍCIO / FIM) */}
+            <div className="lg:col-span-2 xl:col-span-2">
+              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+                <Clock className="w-3.5 h-3.5 text-indigo-400" /> Período
+                (Início/Fim)
               </label>
-              <div className="flex gap-1.5">
+              <div className="flex gap-2.5">
                 <input
                   type="time"
                   value={form.start_time}
@@ -1193,9 +1203,11 @@ export default function Page() {
                 />
               </div>
             </div>
+
+            {/* DEVOPS ID */}
             <div className="lg:col-span-1">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                DevOps ID
+              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+                <Hash className="w-3.5 h-3.5 text-indigo-400" /> DevOps ID
               </label>
               <input
                 type="text"
@@ -1205,9 +1217,11 @@ export default function Page() {
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
               />
             </div>
+
+            {/* TIPO DO CARD */}
             <div className="lg:col-span-2 xl:col-span-1">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                Tipo do Card
+              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+                <Tag className="w-3.5 h-3.5 text-indigo-400" /> Tipo do Card
               </label>
               <select
                 value={form.card_type}
@@ -1223,9 +1237,12 @@ export default function Page() {
                 <option value="QA Plan">QA Plan</option>
               </select>
             </div>
+
+            {/* ACTIVITY */}
             <div className="lg:col-span-2 xl:col-span-3">
-              <label className="text-[11px] font-medium text-amber-400 block mb-1.5">
-                Activity (Categoria)
+              <label className="text-[11px] font-medium text-amber-400 flex items-center gap-1.5 mb-1.5">
+                <CheckSquare className="w-3.5 h-3.5 text-amber-400" /> Activity
+                (Categoria)
               </label>
               <select
                 value={form.activity}
@@ -1250,15 +1267,17 @@ export default function Page() {
                 <option value="Coding / Implementação">
                   Coding / Implementação
                 </option>
-                  <option value="Correção de Bugs (Bug Fixing)">
+                <option value="Correção de Bugs (Bug Fixing)">
                   Correção de Bugs (Bug Fixing)
                 </option>
               </select>
             </div>
 
+            {/* NOTES */}
             <div className="lg:col-span-2 xl:col-span-3">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                Notes (Descrição da Atividade)
+              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+                <FileText className="w-3.5 h-3.5 text-indigo-400" /> Notes
+                (Descrição)
               </label>
               <input
                 type="text"
@@ -1270,9 +1289,12 @@ export default function Page() {
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
               />
             </div>
+
+            {/* LINK URL */}
             <div className="lg:col-span-2 xl:col-span-2">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                Link URL (Opcional)
+              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+                <LinkIcon className="w-3.5 h-3.5 text-indigo-400" /> Link URL
+                (Opcional)
               </label>
               <input
                 type="url"
@@ -1284,9 +1306,12 @@ export default function Page() {
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 outline-none transition-colors"
               />
             </div>
+
+            {/* STATUS INICIAL */}
             <div className="lg:col-span-2 xl:col-span-1">
-              <label className="text-[11px] font-medium text-slate-400 block mb-1.5">
-                Status Inicial
+              <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 mb-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" /> Status
+                Inicial
               </label>
               <select
                 value={form.status}
@@ -1299,6 +1324,8 @@ export default function Page() {
                 <option value="Lançado">Lançado</option>
               </select>
             </div>
+
+            {/* BOTÃO SALVAR */}
             <div className="lg:col-span-2 xl:col-span-2 flex items-end">
               <button
                 type="submit"
@@ -1364,7 +1391,6 @@ export default function Page() {
                     key={dateStr}
                     className="bg-slate-900 border border-slate-800 rounded-2xl transition-all shadow-lg overflow-hidden"
                   >
-                    {/* Cabeçalho do Dia (Clicável para Colapsar/Expandir) */}
                     <div
                       onClick={() => toggleDayCollapse(dateStr)}
                       className="p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 cursor-pointer hover:bg-slate-800/40 transition-colors select-none"
@@ -1401,7 +1427,6 @@ export default function Page() {
                         </div>
                       </div>
 
-                      {/* Progresso e Botão de Colapso */}
                       <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
                         <div className="text-right">
                           <div className="text-xs font-mono font-bold text-white">
@@ -1424,16 +1449,15 @@ export default function Page() {
                           )}
                           <div className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors">
                             {isExpanded ? (
-                              <ChevronUp className="w-4 h-4" />
+                              <ChevronUp className="w-4 h-4 text-indigo-400" />
                             ) : (
-                              <ChevronDown className="w-4 h-4" />
+                              <ChevronDown className="w-4 h-4 text-slate-400" />
                             )}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Barra de Progresso Fina */}
                     <div className="w-full bg-slate-950 h-1 rounded-none overflow-hidden">
                       <div
                         className={`h-full transition-all duration-500 ${isComplete ? "bg-emerald-500" : "bg-indigo-500"}`}
@@ -1441,7 +1465,6 @@ export default function Page() {
                       ></div>
                     </div>
 
-                    {/* Conteúdo Expansível (Cards dos Registros) */}
                     {isExpanded && (
                       <div className="p-4 sm:p-5 bg-slate-950/40 border-t border-slate-800/60 animate-in fade-in duration-200 space-y-3">
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -1489,8 +1512,10 @@ export default function Page() {
                                 </div>
 
                                 <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
-                                  <div className="flex items-center gap-2 font-mono text-slate-400">
-                                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                                  <div className="flex items-center gap-2 font-mono text-slate-300">
+                                    <div className="w-6 h-6 rounded-md bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                                      <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                                    </div>
                                     <span>
                                       {entry.start_time} - {entry.end_time}
                                     </span>
@@ -1505,7 +1530,6 @@ export default function Page() {
                                   </span>
                                 </div>
 
-                                {/* Botões rápidos do card */}
                                 <div className="flex items-center justify-end gap-1 pt-1 border-t border-slate-800/50">
                                   <button
                                     onClick={() => toggleStatus(entry)}
@@ -1521,14 +1545,14 @@ export default function Page() {
                                     className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors"
                                     title="Editar"
                                   >
-                                    <Pencil className="w-3 h-3" />
+                                    <Pencil className="w-3 h-3 text-slate-400" />
                                   </button>
                                   <button
                                     onClick={() => confirmDelete(entry)}
                                     className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
                                     title="Excluir"
                                   >
-                                    <Trash2 className="w-3 h-3" />
+                                    <Trash2 className="w-3 h-3 text-slate-400" />
                                   </button>
                                 </div>
                               </div>
@@ -1551,7 +1575,7 @@ export default function Page() {
                 onClick={() => setEditingEntry(null)}
                 className="absolute top-5 right-5 p-1 text-slate-500 hover:text-white transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 text-slate-400" />
               </button>
               <h3 className="text-lg font-bold text-white mb-5">
                 Editar Registro
