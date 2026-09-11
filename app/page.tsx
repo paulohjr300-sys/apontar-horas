@@ -2365,6 +2365,12 @@ export default function Page() {
                       Planning / Refinamento Técnico
                     </option>
                     <option
+                      value="Coding / Implementação"
+                      className="bg-slate-950 text-white py-2"
+                    >
+                      Coding / Implementação
+                    </option>
+                    <option
                       value="Análise de Chamado"
                       className="bg-slate-950 text-white py-2"
                     >
