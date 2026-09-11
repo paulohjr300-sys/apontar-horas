@@ -552,7 +552,7 @@ export default function Page() {
         existingKeys.add(azureKey);
 
         missing.push({
-          user_id: user.id,
+          user_id: user?.id,
           date: date,
           card_type: "US",
           activity: doc?.type || doc?.activity || "Outros",
