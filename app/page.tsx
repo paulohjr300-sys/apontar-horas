@@ -1660,6 +1660,12 @@ export default function Page() {
                   Daily Scrum / Reunião diária
                 </option>
                 <option
+                  value="Teste c/ Negócio"
+                  className="bg-slate-950 text-white py-2"
+                >
+                  Teste c/ Negócio
+                </option>
+                <option
                   value="Execução de Testes e Regressão"
                   className="bg-slate-950 text-white py-2"
                 >
@@ -2321,6 +2327,12 @@ export default function Page() {
                       className="bg-slate-950 text-white"
                     >
                       Daily Scrum / Reunião diária
+                    </option>
+                    <option
+                      value="Teste c/ Negócio"
+                      className="bg-slate-950 text-white py-2"
+                    >
+                      Teste c/ Negócio
                     </option>
                     <option
                       value="Execução de Testes e Regressão"
