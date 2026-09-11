@@ -5,7 +5,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createClient, User } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 import {
@@ -94,6 +94,9 @@ export default function Page() {
   const [uploadingExcel, setUploadingExcel] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [isSyncingAdo, setIsSyncingAdo] = useState(false);
+  const [isFetchingAzureLogs, setIsFetchingAzureLogs] = useState(false);
+  const [azureMissingLogs, setAzureMissingLogs] = useState<any[]>([]);
+  const [showAzureMissingLogs, setShowAzureMissingLogs] = useState(false);
 
   const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>(
     {},
@@ -120,6 +123,10 @@ export default function Page() {
     ado_user_name: "",
     ado_user_id: "",
   });
+
+  const formInitializedRef = useRef(false);
+  const restoringDraftRef = useRef(false);
+  const userDataLoadedRef = useRef(false);
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -166,7 +173,59 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    if (user) fetchUserData();
+    if (!user?.id || typeof window === "undefined") return;
+    if (!userDataLoadedRef.current) return;
+    if (restoringDraftRef.current) {
+      restoringDraftRef.current = false;
+      return;
+    }
+    sessionStorage.setItem(
+      `devops-hours-form:${user.id}`,
+      JSON.stringify(form),
+    );
+  }, [form, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined" || loadingData) return;
+    const scrollKey = `devops-hours-scroll:${user.id}`;
+
+    const saveScroll = () => {
+      sessionStorage.setItem(scrollKey, String(window.scrollY));
+    };
+
+    const restoreScroll = () => {
+      const saved = Number(sessionStorage.getItem(scrollKey));
+      if (!Number.isFinite(saved)) return;
+      window.requestAnimationFrame(() => window.scrollTo(0, saved));
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") saveScroll();
+      else restoreScroll();
+    };
+
+    restoreScroll();
+    window.addEventListener("scroll", saveScroll, { passive: true });
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("beforeunload", saveScroll);
+
+    return () => {
+      saveScroll();
+      window.removeEventListener("scroll", saveScroll);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("beforeunload", saveScroll);
+    };
+  }, [user?.id, loadingData]);
+
+  useEffect(() => {
+    if (user) {
+      userDataLoadedRef.current = false;
+      formInitializedRef.current = false;
+      fetchUserData();
+    } else {
+      userDataLoadedRef.current = false;
+      formInitializedRef.current = false;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -206,26 +265,47 @@ export default function Page() {
       const today = new Date().toISOString().split("T")[0];
       setCollapsedDays({ [today]: true });
 
-      // Preenche dinamicamente o formulário com base no último apontamento do dia de hoje
-      if (entriesData && entriesData.length > 0) {
-        const todayEntries = entriesData.filter((e) => e.date === today);
-        if (todayEntries.length > 0) {
-          const lastEntry = todayEntries.sort((a, b) =>
-            b.end_time.localeCompare(a.end_time),
-          )[0];
-          if (lastEntry?.end_time) {
-            setForm((prev) => ({
-              ...prev,
-              date: today,
-              start_time: lastEntry.end_time,
-              end_time: addOneHour(lastEntry.end_time),
-            }));
+      if (!formInitializedRef.current) {
+        let draftRestored = false;
+        if (typeof window !== "undefined" && user?.id) {
+          const draftKey = `devops-hours-form:${user.id}`;
+          const savedDraft = sessionStorage.getItem(draftKey);
+          if (savedDraft) {
+            try {
+              const parsedDraft = JSON.parse(savedDraft);
+              if (parsedDraft && typeof parsedDraft === "object") {
+                restoringDraftRef.current = true;
+                setForm((prev) => ({ ...prev, ...parsedDraft }));
+                draftRestored = true;
+              }
+            } catch {
+              sessionStorage.removeItem(draftKey);
+            }
           }
         }
+
+        if (!draftRestored && entriesData && entriesData.length > 0) {
+          const todayEntries = entriesData.filter((e) => e.date === today);
+          if (todayEntries.length > 0) {
+            const lastEntry = [...todayEntries].sort((a, b) =>
+              b.end_time.localeCompare(a.end_time),
+            )[0];
+            if (lastEntry?.end_time) {
+              setForm((prev) => ({
+                ...prev,
+                date: today,
+                start_time: lastEntry.end_time,
+                end_time: addOneHour(lastEntry.end_time),
+              }));
+            }
+          }
+        }
+        formInitializedRef.current = true;
       }
     } catch (err) {
       showToast("Erro ao carregar os dados.", "error");
     } finally {
+      userDataLoadedRef.current = true;
       setLoadingData(false);
     }
   };
@@ -343,6 +423,197 @@ export default function Page() {
       return null;
     } finally {
       setIsSyncingAdo(false);
+    }
+  };
+
+  const fetchMissingAzureLogs = async () => {
+    if (
+      !settings.ado_organization ||
+      !settings.ado_user_id ||
+      !settings.ado_pat
+    ) {
+      showToast(
+        "Preencha Organização, Token (PAT) e seu User ID do Azure nas configurações.",
+        "error",
+      );
+      return;
+    }
+
+    setIsFetchingAzureLogs(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-ado", {
+        body: {
+          action: "FETCH_WORK_LOGS",
+          organization: settings.ado_organization,
+          project: settings.ado_project,
+          pat: settings.ado_pat,
+          userId: settings.ado_user_id,
+          userName: settings.ado_user_name,
+        },
+      });
+
+      if (error)
+        throw new Error(error.message || "Falha ao consultar o Azure.");
+      if (data?.error) throw new Error(data.error);
+
+      const azureDocuments = Array.isArray(data?.documents)
+        ? data.documents
+        : [];
+
+      const normalizeUserId = (value: any) =>
+        String(value ?? "")
+          .trim()
+          .replace(/[{}]/g, "")
+          .toLowerCase();
+
+      const targetUserId = normalizeUserId(settings.ado_user_id);
+
+      const myAzureDocuments = azureDocuments.filter(
+        (doc: any) => normalizeUserId(doc?.userId) === targetUserId,
+      );
+
+      const normalizeText = (val: any) =>
+        String(val ?? "")
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, " ");
+
+      const normalizeDate = (val: any) =>
+        String(val ?? "")
+          .trim()
+          .split("T")[0]
+          .split(" ")[0];
+
+      const createMatchKey = (
+        date: string,
+        cardId: any,
+        startTime: string,
+        duration: any,
+      ) => {
+        return [
+          normalizeDate(date),
+          String(cardId ?? "")
+            .replace(/\D/g, "")
+            .trim(),
+          normalizeText(startTime),
+          String(Number(duration ?? 0)),
+        ].join("|");
+      };
+
+      // Conjuntos de controle para evitar duplicidade exata
+      const existingDocIds = new Set(
+        entries
+          .map((entry) => String(entry.ado_doc_id || "").trim())
+          .filter(Boolean),
+      );
+
+      const existingKeys = new Set(
+        entries.map((entry) =>
+          createMatchKey(
+            entry.date,
+            entry.card_id,
+            entry.start_time,
+            getEntryDurationMinutes(entry.start_time, entry.end_time),
+          ),
+        ),
+      );
+
+      const missing: any[] = [];
+      const seenBatchKeys = new Set();
+
+      for (const doc of myAzureDocuments) {
+        const docId = String(doc?.id ?? "").trim();
+        if (docId && existingDocIds.has(docId)) continue;
+
+        const start_time = doc?.startTime || doc?.start_time || "09:00";
+        let end_time = doc?.endTime || doc?.end_time;
+        const duration =
+          doc?.time ?? getEntryDurationMinutes(start_time, end_time);
+
+        if (!end_time && doc?.time) {
+          const startMin = timeToMinutes(start_time);
+          const endMin = startMin + Number(doc.time);
+          const endH = Math.floor(endMin / 60) % 24;
+          const endM = endMin % 60;
+          end_time = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+        }
+        if (!end_time) end_time = addOneHour(start_time);
+
+        const date = normalizeDate(doc?.date || new Date().toISOString());
+        const cardId = doc?.workItemId ?? doc?.card_id;
+
+        const azureKey = createMatchKey(date, cardId, start_time, duration);
+
+        // Se já existe no banco ou se já adicionamos neste mesmo lote, pula para evitar duplicata
+        if (existingKeys.has(azureKey) || seenBatchKeys.has(azureKey)) continue;
+
+        seenBatchKeys.add(azureKey);
+        if (docId) existingDocIds.add(docId);
+        existingKeys.add(azureKey);
+
+        missing.push({
+          user_id: user.id,
+          date: date,
+          card_type: "US",
+          activity: doc?.type || doc?.activity || "Outros",
+          start_time: start_time,
+          end_time: end_time,
+          card_id: cardId ? String(cardId) : "",
+          description: doc?.notes || doc?.description || "",
+          card_link: doc?.url || "",
+          status: "Lançado" as const,
+          ado_doc_id: docId || null,
+        });
+      }
+
+      if (missing.length === 0) {
+        showToast(
+          "Todos os lançamentos do Azure já constam no seu banco e tela local.",
+          "success",
+        );
+        return;
+      }
+
+      // Salva no Supabase
+      const { data: insertedData, error: insertError } = await supabase
+        .from("time_entries")
+        .insert(missing)
+        .select();
+
+      if (insertError) {
+        throw new Error("Erro ao salvar os registros do Azure no banco.");
+      }
+
+      if (insertedData && insertedData.length > 0) {
+        setEntries((prev) => {
+          // Garante que mesmo com múltiplos estados, nenhum ID ou chave se repita visualmente
+          const map = new Map();
+          // Adiciona os antigos primeiro
+          prev.forEach((item) => {
+            map.set(item.id, item);
+          });
+          // Adiciona os novos inseridos
+          insertedData.forEach((item) => {
+            map.set(item.id, item);
+          });
+          return Array.from(map.values()).sort((a, b) =>
+            b.date.localeCompare(a.date),
+          );
+        });
+
+        showToast(
+          `${insertedData.length} apontamento(s) importado(s) do Azure com sucesso!`,
+          "success",
+        );
+      }
+    } catch (err: any) {
+      console.error("Erro ao buscar/sincronizar apontamentos do Azure:", err);
+      showToast(
+        err.message || "Erro ao importar os apontamentos do Azure.",
+        "error",
+      );
+    } finally {
+      setIsFetchingAzureLogs(false);
     }
   };
 
@@ -651,15 +922,22 @@ export default function Page() {
       const nextEnd = addOneHour(nextStart);
 
       setEntries([newEntry, ...entries]);
-      setForm({
+      const nextForm = {
         ...form,
         start_time: nextStart,
         end_time: nextEnd,
         description: "",
         card_id: "",
         card_link: "",
-        status: "Pendente",
-      });
+        status: "Pendente" as "Pendente" | "Lançado",
+      };
+      setForm(nextForm);
+      if (user?.id && typeof window !== "undefined") {
+        sessionStorage.setItem(
+          `devops-hours-form:${user.id}`,
+          JSON.stringify(nextForm),
+        );
+      }
       setCollapsedDays((prev) => ({ ...prev, [form.date]: true }));
       showToast(
         isLançado
@@ -961,6 +1239,25 @@ export default function Page() {
                 className="hidden"
               />
             </label>
+
+            <button
+              type="button"
+              onClick={fetchMissingAzureLogs}
+              disabled={isFetchingAzureLogs}
+              className="bg-slate-900/90 border border-emerald-900/50 hover:border-emerald-500/50 hover:bg-emerald-500/10 text-slate-200 text-sm font-medium px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Consultar somente seus apontamentos no Azure que ainda não estão no banco"
+            >
+              {isFetchingAzureLogs ? (
+                <div className="w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+              ) : (
+                <CloudCog className="w-4 h-4 text-emerald-400" />
+              )}
+              <span>
+                {isFetchingAzureLogs
+                  ? "Consultando Azure..."
+                  : "Buscar no Azure"}
+              </span>
+            </button>
 
             <div className="bg-slate-900/90 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-3 shadow-sm">
               <Clock className="w-4 h-4 text-indigo-400" />
@@ -1737,6 +2034,188 @@ export default function Page() {
             </div>
           )}
         </section>
+
+        {/* AZURE MISSING LOGS MODAL - SOMENTE LEITURA */}
+        {showAzureMissingLogs && (
+          <div className="fixed inset-0 bg-[#0a0f1d]/85 backdrop-blur-sm flex items-center justify-center p-4 z-[80] animate-in fade-in">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-6xl w-full max-h-[90vh] shadow-2xl relative overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-800/80 flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                    <CloudCog className="w-5 h-5 text-emerald-400" />
+                    Apontamentos encontrados no Azure
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    Somente registros do seu User ID que não foram encontrados
+                    no banco local.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAzureMissingLogs(false)}
+                  className="p-1.5 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-xl transition-colors shrink-0"
+                  title="Fechar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-auto space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                      Encontrados
+                    </span>
+                    <div className="text-2xl font-black text-emerald-400 font-mono mt-1">
+                      {azureMissingLogs.length}
+                    </div>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                      Usuário filtrado
+                    </span>
+                    <div
+                      className="text-sm font-semibold text-white mt-2 truncate"
+                      title={settings.ado_user_name}
+                    >
+                      {settings.ado_user_name || "Não informado"}
+                    </div>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                      User ID
+                    </span>
+                    <div
+                      className="text-xs font-mono text-slate-300 mt-2 truncate"
+                      title={settings.ado_user_id}
+                    >
+                      {settings.ado_user_id}
+                    </div>
+                  </div>
+                </div>
+
+                {azureMissingLogs.length === 0 ? (
+                  <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-10 text-center">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
+                    <p className="text-sm font-semibold text-white">
+                      Tudo sincronizado
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Não foi encontrado nenhum apontamento seu no Azure que
+                      esteja ausente no banco local.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden">
+                      <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                          Payload retornado
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          JSON bruto
+                        </span>
+                      </div>
+                      <pre className="p-4 text-xs text-emerald-300 font-mono whitespace-pre-wrap break-all max-h-[420px] overflow-auto">
+                        {JSON.stringify(azureMissingLogs, null, 2)}
+                      </pre>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                          Registros
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          {azureMissingLogs.length} registro(s)
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                        {azureMissingLogs.map((doc: any, index: number) => (
+                          <div
+                            key={String(doc?.id || index)}
+                            className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-xs font-mono font-bold text-indigo-400">
+                                #{doc?.workItemId || "Sem ID"}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                Doc: {doc?.id || "-"}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-white line-clamp-2">
+                                {doc?.workItemName || "Sem título"}
+                              </p>
+                              <p className="text-[11px] text-amber-400 mt-1">
+                                {doc?.type || "Sem atividade"}
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[11px]">
+                              <div className="bg-slate-900 rounded-lg p-2">
+                                <span className="text-slate-500 block">
+                                  Data
+                                </span>
+                                <span className="text-slate-200 font-mono">
+                                  {doc?.date || "-"}
+                                </span>
+                              </div>
+                              <div className="bg-slate-900 rounded-lg p-2">
+                                <span className="text-slate-500 block">
+                                  Início
+                                </span>
+                                <span className="text-slate-200 font-mono">
+                                  {doc?.startTime || "-"}
+                                </span>
+                              </div>
+                              <div className="bg-slate-900 rounded-lg p-2">
+                                <span className="text-slate-500 block">
+                                  Duração
+                                </span>
+                                <span className="text-slate-200 font-mono">
+                                  {doc?.time ?? "-"} min
+                                </span>
+                              </div>
+                              <div className="bg-slate-900 rounded-lg p-2">
+                                <span className="text-slate-500 block">
+                                  Usuário
+                                </span>
+                                <span
+                                  className="text-slate-200 truncate block"
+                                  title={doc?.user}
+                                >
+                                  {doc?.user || "-"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="border-t border-slate-800 pt-3">
+                              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                                Notes
+                              </span>
+                              <p className="text-xs text-slate-300 mt-1 whitespace-pre-wrap break-words">
+                                {doc?.notes || "Sem descrição"}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="p-5 border-t border-slate-800/80 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowAzureMissingLogs(false)}
+                  className="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* EDIT MODAL */}
         {editingEntry && (
