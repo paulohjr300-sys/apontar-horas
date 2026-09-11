@@ -1348,7 +1348,7 @@ export default function Page() {
                 className="w-full bg-slate-950 border border-amber-900/40 rounded-xl px-3.5 py-3 text-sm text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all cursor-pointer"
               >
                 <option
-                  value="Daily Scrum / Reunião diaria"
+                  value="Daily Scrum / Reunião Diaria"
                   className="bg-slate-950 text-white py-2"
                 >
                   Daily Scrum / Reunião diária
