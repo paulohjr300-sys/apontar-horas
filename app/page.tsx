@@ -1666,6 +1666,12 @@ export default function Page() {
                   Teste c/ Negócio
                 </option>
                 <option
+                  value="Review e Retrospectiva"
+                  className="bg-slate-950 text-white py-2"
+                >
+                  Review e Retrospectiva
+                </option>
+                <option
                   value="Execução de Testes e Regressão"
                   className="bg-slate-950 text-white py-2"
                 >
@@ -2333,6 +2339,12 @@ export default function Page() {
                       className="bg-slate-950 text-white py-2"
                     >
                       Teste c/ Negócio
+                    </option>
+                    <option
+                      value="Review e Retrospectiva"
+                      className="bg-slate-950 text-white py-2"
+                    >
+                      Review e Retrospectiva
                     </option>
                     <option
                       value="Execução de Testes e Regressão"
