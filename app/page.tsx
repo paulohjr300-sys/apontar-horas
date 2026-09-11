@@ -1783,6 +1783,12 @@ export default function Page() {
                       >
                         QA Plan
                       </option>
+                      <option value="Daily" className="bg-slate-950 text-white">
+                        QA Teste
+                      </option>
+                      <option value="Daily" className="bg-slate-950 text-white">
+                        SOS
+                      </option>
                     </select>
                   </div>
                 </div>
