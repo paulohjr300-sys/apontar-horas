@@ -1787,7 +1787,7 @@ export default function Page() {
         </section>
 
         {/* DAILY SUMMARY ACCORDION */}
-        <section className="space-y-4">
+        <section id="daily-summary" className="scroll-mt-6 space-y-4">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <CalendarDays className="w-5 h-5 text-indigo-400" />{" "}
@@ -1834,6 +1834,9 @@ export default function Page() {
               {dailySortedDates.map((dateStr) => {
                 const dayEntries = filteredEntries.filter(
                   (e) => e.date === dateStr,
+                );
+                const pendingDayEntries = dayEntries.filter(
+                  (e) => e.status === "Pendente",
                 );
 
                 const sortedDayEntries = [...dayEntries].sort((a, b) =>
@@ -1895,6 +1898,16 @@ export default function Page() {
                             {isFriday && (
                               <span className="text-[10px] font-semibold bg-indigo-950/80 text-indigo-400 border border-indigo-800/50 px-2.5 py-0.5 rounded-full">
                                 Sexta-feira
+                              </span>
+                            )}
+
+                            {pendingDayEntries.length > 0 && (
+                              <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full border bg-amber-500/10 text-amber-300 border-amber-500/30">
+                                {pendingDayEntries.length}{" "}
+                                {pendingDayEntries.length === 1
+                                  ? "Card pendente"
+                                  : "Cards pendentes"}{" "}
+                                para lançar
                               </span>
                             )}
                           </div>
